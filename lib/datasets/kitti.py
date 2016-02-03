@@ -1,4 +1,4 @@
-# KITTI Object Dataset is expected to be at [PRE_PATH]/fast-rcnn/kitti[/object]
+# KITTI Object Dataset is expected to be at $FRCN_ROOT/data/kitti
 # image_set
 # training:kitti/object/testing/image_2/[from 000 to 007480.png]
 # testing: 007517.png
@@ -32,7 +32,9 @@ class kitti(datasets.imdb):
         self._image_index = self._load_image_set_index()
         # Default to roidb handler
         self._roidb_handler = self.dollar_roidb
-        self._orientations = (0.39, 1.18, 1.96, 2.75, -2.75, -1.96, -1.18, -0.39, 1.57)
+        # 8 orientation bins:
+        self._orientations = (0.39, 1.18, 1.96, 2.75,
+                                -2.75, -1.96, -1.18, -0.39, 1.57)
 
         assert os.path.exists(self._devkit_path), \
                 'KITTI devkit path does not exist: {}'.format(self._devkit_path)
@@ -52,7 +54,8 @@ class kitti(datasets.imdb):
         image_path = os.path.join(self._data_path, self._image_set, 'image_2',
                                   index + self._image_ext)
         assert os.path.exists(image_path), \
-                'Path does not exist: {}'.format(image_path)
+                'Path does not exist: {}'.format(image_path)        #bool_arr = np.array([p_obj['type'].strip() != 'DontCare' for p_obj in pre_objs])
+
         return image_path
 
     def _load_image_set_index(self):
@@ -60,7 +63,7 @@ class kitti(datasets.imdb):
         Load the indexes listed in this dataset's image set file.
         """
         # Example path to image set file:
-        # self._devkit_path + /VOCdevkit2007/VOC2007/ImageSets/Main/val.txt
+        # self._devkit_path + /KITTI/object/ImageSets/Main/val.txt
         image_set_file = os.path.join(self._data_path, 'ImageSets', 'Main',
                                       self._image_set + '.txt')
         assert os.path.exists(image_set_file), \
@@ -68,7 +71,6 @@ class kitti(datasets.imdb):
         with open(image_set_file) as f:
             image_index = [x.strip() for x in f.readlines()]
 
-        # print 'Last index --> {:d}'.format(len(image_index))
         return image_index
 
     def _get_default_path(self):
@@ -103,7 +105,8 @@ class kitti(datasets.imdb):
         Load image and bounding boxes info from XML file in the PASCAL VOC
         format.
         """
-        filename = os.path.join(self._data_path, self._image_set, 'label_2', index + '.txt')
+        filename = os.path.join(self._data_path, self._image_set, 'label_2',
+                                index + '.txt')
         print 'Loading: {}'.format(filename)
 
         pre_objs = np.genfromtxt(filename, delimiter=' ',
@@ -113,14 +116,9 @@ class kitti(datasets.imdb):
                         'location_1', 'location_2', 'location_3',
                         'rotation_y', 'score'], dtype=None)
 
+        # Just in case there are no objects
         if (pre_objs.ndim < 1):
             pre_objs = np.array(pre_objs, ndmin=1)
-
-        #bool_arr = np.array([p_obj['type'].strip() != 'DontCare' for p_obj in pre_objs])
-        #objs = pre_objs[bool_arr];
-
-        #if (objs.ndim < 1):
-        #    objs = np.array(objs, ndmin=1)
 
         num_objs = pre_objs.size
 
@@ -135,16 +133,17 @@ class kitti(datasets.imdb):
             y1 = obj['bbox_ymin']
             x2 = obj['bbox_xmax']
             y2 = obj['bbox_ymax']
-            #cls = self._class_to_ind[
-            #         str(obj['type'].lower().strip() if obj['type'].strip() is not 'DontCare' else '__background__')]
             if obj['type'].strip() != 'DontCare' :
                 cls = self._class_to_ind[str(obj['type'].strip())]
                 gt_classes[ix] = cls
             else :
+                #DontCare is assigned index -1
                 gt_classes[ix] = -1
+            # KITTI boxes have one decimal place
             boxes[ix, :] = [round(x1), round(y1), round(x2), round(y2)]
             overlaps[ix, cls] = 1.0
             if obj['alpha'] != -10 :
+                # Assign an orientation bin for every object
                 if obj['alpha']<0 :
                     angle = math.floor((6.28319+obj['alpha'])/0.785398)
                 else:
@@ -153,6 +152,7 @@ class kitti(datasets.imdb):
                 angle = -10;
 
             gt_orientation[ix] = angle
+            # Checks
             if gt_classes[ix] == -1:
                 assert gt_orientation[ix]==-10
             else:
@@ -168,7 +168,7 @@ class kitti(datasets.imdb):
 
     def dollar_roidb(self):
         """
-        Return the database of selective search regions of interest.
+        Return the database of Dollar Edges regions of interest.
         Ground-truth ROIs are also included.
 
         This function loads/saves from/to a cache file to speed up future calls.
@@ -207,12 +207,13 @@ class kitti(datasets.imdb):
         return self.create_roidb_from_box_list(box_list, gt_roidb)
 
     def evaluate_detections(self, all_boxes, output_dir):
+        """
+        Detections are written in a file with KITTI object database format
+        """
 
-        comp_id = 'comp4'
-        comp_id += '-{}'.format(os.getpid())
+        comp_id = '{}'.format(os.getpid())
 
-        path = os.path.join(self._devkit_path, 'results', 'LSINetOr',
-                            '')
+        path = os.path.join(self._devkit_path, 'results', comp_id, '')
 
         for im_ind, index in enumerate(self.image_index):
             print 'Writing {} VOC results file'.format(index)
@@ -221,24 +222,20 @@ class kitti(datasets.imdb):
                 for cls_ind, cls in enumerate(self.classes):
                     if cls == '__background__':
                         continue
-                    #elif cls == 'Car_facing' or cls == 'Car_moving_away' or cls == 'Car_looking_left' or cls == 'Car_looking_right':
-                    #    write_cls = 'Car'
                     else:
                         write_cls = cls
                     dets = all_boxes[cls_ind][im_ind]
 
                     if dets == []:
                         continue
-                    # the KITTI expects 0-based indices
 
                     for k in xrange(dets.shape[0]):
                         angle = dets[k, -10:-1]
                         assert len(angle) == 9
-                        #print angle
                         angle_bin = np.argmax(angle)
-                        #print angle_bin
-                        #print dets[k, 0], dets[k, 1], dets[k, 2], dets[k, 3], dets[k, -1]
-                        f.write('{:s} -1 -1 {:.2f} {:.1f} {:.1f} {:.1f} {:.1f} -1 -1 -1 -1000 -1000 -1000 -10 {:.3f}\n'.
+                        # KITTI expects 0-based indices
+                        f.write('{:s} -1 -1 {:.2f} {:.1f} {:.1f} {:.1f} {:.1f}\
+                                -1 -1 -1 -1000 -1000 -1000 -10 {:.3f}\n'.
                                 format(write_cls,
                                        self._orientations[angle_bin],
                                        dets[k, 0], dets[k, 1],
@@ -246,6 +243,9 @@ class kitti(datasets.imdb):
                                        dets[k, -10]))
 
     def competition_mode(self, on):
+        """
+        Not implemented
+        """
         print 'Wow, competition mode. Doing nothing...'
 
 if __name__ == '__main__':
