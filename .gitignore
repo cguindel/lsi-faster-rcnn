@@ -1,3 +1,4 @@
 *.pyc
 .ipynb_checkpoints
 lib/build
+data/faster_rcnn_models
