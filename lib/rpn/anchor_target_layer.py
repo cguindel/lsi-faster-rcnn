@@ -76,8 +76,10 @@ class AnchorTargetLayer(caffe.Layer):
 
         # map of shape (..., H, W)
         height, width = bottom[0].data.shape[-2:]
-        # GT boxes (x1, y1, x2, y2, label)
+        # GT boxes (x1, y1, x2, y2, label, orient)
         gt_boxes = bottom[1].data
+        # We don't want orientation here
+        gt_boxes = gt_boxes[:,:-1]
         # im_info
         im_info = bottom[2].data[0, :]
 
@@ -127,6 +129,15 @@ class AnchorTargetLayer(caffe.Layer):
         labels = np.empty((len(inds_inside), ), dtype=np.float32)
         labels.fill(-1)
 
+        """
+        This is hardly modified from the original because we want to
+        manage DontCare labels. They are assigned -1 class index.
+        Later steps already knew how to handle -1.
+        """
+        # Find care/dontcare gt_boxes indices
+        dontcare_gt_inds = np.where(gt_boxes[:,4]<0)[0]
+        care_gt_inds = np.where(gt_boxes[:,4]>-1)[0]
+
         # overlaps between the anchors and the gt boxes
         # overlaps (ex, gt)
         overlaps = bbox_overlaps(
@@ -135,19 +146,57 @@ class AnchorTargetLayer(caffe.Layer):
         argmax_overlaps = overlaps.argmax(axis=1)
         max_overlaps = overlaps[np.arange(len(inds_inside)), argmax_overlaps]
         gt_argmax_overlaps = overlaps.argmax(axis=0)
+        # gt_argmax_overlaps: anchor indices with greater overlapping with each
+        # gt_box
         gt_max_overlaps = overlaps[gt_argmax_overlaps,
-                                   np.arange(overlaps.shape[1])]
+                                    np.arange(overlaps.shape[1])]
+        # gt_max_overlaps: max overlapping with each gt_box
+
+        # Find anchor indices whose greater overlapping is over a dontcare
+        # gt_box
+        dontcare_anchor_inds = [
+            anchor_ind for anchor_ind, gt_box in enumerate(argmax_overlaps)
+            if gt_box in dontcare_gt_inds]
+
+        gt_dontcare_argmax_overlaps = [gt_argmax_overlaps[i]
+                                        for i in dontcare_gt_inds]
+        # gt_dontcare_argmax_overlaps: Anchor indices that are max overlappers
+        # over a dontcare gt_box
+        gt_care_argmax_overlaps = [gt_argmax_overlaps[i]
+                                    for i in care_gt_inds]
+        # gt_care_argmax_overlaps: Anchor indices that are max overlappers over
+        # a dontcare gt_box
+
+        gt_dontcare_max_overlaps = overlaps[gt_dontcare_argmax_overlaps,
+                                   dontcare_gt_inds]
+        gt_care_max_overlaps = overlaps[gt_care_argmax_overlaps,
+                               care_gt_inds]
+
         gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
+
+        gt_dontcare_argmax_overlaps = np.where(
+            overlaps[:,dontcare_gt_inds] == gt_dontcare_max_overlaps)[0]
+        gt_care_argmax_overlaps = np.where(
+            overlaps[:,care_gt_inds] == gt_care_max_overlaps)[0]
 
         if not cfg.TRAIN.RPN_CLOBBER_POSITIVES:
             # assign bg labels first so that positive labels can clobber them
             labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
 
         # fg label: for each gt, anchor with highest overlap
-        labels[gt_argmax_overlaps] = 1
+        labels[gt_care_argmax_overlaps] = 1
+        labels[gt_dontcare_argmax_overlaps] = -1
+
+        care_max_overlaps = [max_overlaps[anchor_ind]
+                            if anchor_ind not in dontcare_anchor_inds else 0
+                            for anchor_ind, overlp in enumerate(max_overlaps)]
+        dontcare_max_overlaps = [max_overlaps[anchor_ind]
+                            if anchor_ind in dontcare_anchor_inds else 0
+                            for anchor_ind, overlp in enumerate(max_overlaps)]
 
         # fg label: above threshold IOU
-        labels[max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
+        labels[care_max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
+        labels[dontcare_max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = -1
 
         if cfg.TRAIN.RPN_CLOBBER_POSITIVES:
             # assign bg labels last so that negative labels can clobber positives
@@ -168,8 +217,6 @@ class AnchorTargetLayer(caffe.Layer):
             disable_inds = npr.choice(
                 bg_inds, size=(len(bg_inds) - num_bg), replace=False)
             labels[disable_inds] = -1
-            #print "was %s inds, disabling %s, now %s inds" % (
-                #len(bg_inds), len(disable_inds), np.sum(labels == 0))
 
         bbox_targets = np.zeros((len(inds_inside), 4), dtype=np.float32)
         bbox_targets = _compute_targets(anchors, gt_boxes[argmax_overlaps, :])

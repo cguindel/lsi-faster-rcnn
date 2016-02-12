@@ -218,6 +218,13 @@ class kitti(datasets.imdb):
         for im_ind, index in enumerate(self.image_index):
             print 'Writing {} VOC results file'.format(index)
             filename = path + index + '.txt'
+            if not os.path.exists(os.path.dirname(filename)):
+                try:
+                    os.makedirs(os.path.dirname(filename))
+                except OSError as exc: # Guard against race condition
+                    if exc.errno != errno.EEXIST:
+                        raise
+
             with open(filename, 'wt') as f:
                 for cls_ind, cls in enumerate(self.classes):
                     if cls == '__background__':
@@ -230,17 +237,16 @@ class kitti(datasets.imdb):
                         continue
 
                     for k in xrange(dets.shape[0]):
-                        angle = dets[k, -10:-1]
-                        assert len(angle) == 9
+                        angle = dets[k, -9:-1]
+                        assert np.amax(angle) < 8
                         angle_bin = np.argmax(angle)
                         # KITTI expects 0-based indices
-                        f.write('{:s} -1 -1 {:.2f} {:.1f} {:.1f} {:.1f} {:.1f}\
-                                -1 -1 -1 -1000 -1000 -1000 -10 {:.3f}\n'.
+                        f.write('{:s} -1 -1 {:.2f} {:.1f} {:.1f} {:.1f} {:.1f} -1 -1 -1 -1000 -1000 -1000 -10 {:.3f}\n'.
                                 format(write_cls,
                                        self._orientations[angle_bin],
                                        dets[k, 0], dets[k, 1],
                                        dets[k, 2], dets[k, 3],
-                                       dets[k, -10]))
+                                       dets[k, -9]))
 
     def competition_mode(self, on):
         """

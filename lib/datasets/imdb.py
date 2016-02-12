@@ -62,6 +62,7 @@ class imdb(object):
         #   gt_overlaps
         #   gt_classes
         #   flipped
+        #   orientation
         if self._roidb is not None:
             return self._roidb
         self._roidb = self.roidb_handler()
@@ -91,9 +92,26 @@ class imdb(object):
         Each of those list elements is either an empty list []
         or a numpy array of detection.
 
-        all_boxes[class][image] = [] or np.array of shape #dets x 5
+        all_boxes[class][image] = [] or np.array of shape #dets x 6
         """
         raise NotImplementedError
+
+    def rotate_element(self, a):
+        """
+         Flip horizontally an object in the image
+        """
+        switcher = {
+            0: 3,
+            1: 2,
+            2: 1,
+            3: 0,
+            4: 7,
+            5: 6,
+            6: 5,
+            7: 4
+        }
+        # Returns -10 by default
+        return switcher.get(a, -10)
 
     def append_flipped_images(self):
         num_images = self.num_images
@@ -106,10 +124,17 @@ class imdb(object):
             boxes[:, 0] = widths[i] - oldx2 - 1
             boxes[:, 2] = widths[i] - oldx1 - 1
             assert (boxes[:, 2] >= boxes[:, 0]).all()
+            # Orientation
+            orient_raw = self.roidb[i]['gt_orientations'].copy()
+            orient = [self.rotate_element(orient_raw[elem])
+                        if rads!=-10 else -10
+                        for elem, rads in enumerate(orient_raw) ]
+
             entry = {'boxes' : boxes,
                      'gt_overlaps' : self.roidb[i]['gt_overlaps'],
                      'gt_classes' : self.roidb[i]['gt_classes'],
-                     'flipped' : True}
+                     'flipped' : True,
+                     'gt_orientations' : np.array(orient)}
             self.roidb.append(entry)
         self._image_index = self._image_index * 2
 

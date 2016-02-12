@@ -46,6 +46,8 @@ class ProposalTargetLayer(caffe.Layer):
         top[3].reshape(1, self._num_classes * 4)
         # bbox_outside_weights
         top[4].reshape(1, self._num_classes * 4)
+        # orientations
+        top[5].reshape(1, 1)
 
     def forward(self, bottom, top):
         # Proposal ROIs (0, x1, y1, x2, y2) coming from RPN
@@ -59,7 +61,7 @@ class ProposalTargetLayer(caffe.Layer):
         # Include ground-truth boxes in the set of candidate rois
         zeros = np.zeros((gt_boxes.shape[0], 1), dtype=gt_boxes.dtype)
         all_rois = np.vstack(
-            (all_rois, np.hstack((zeros, gt_boxes[:, :-1])))
+            (all_rois, np.hstack((zeros, gt_boxes[:, :-2])))
         )
 
         # Sanity check: single batch only
@@ -72,7 +74,7 @@ class ProposalTargetLayer(caffe.Layer):
 
         # Sample rois with classification labels and bounding box regression
         # targets
-        labels, rois, bbox_targets, bbox_inside_weights = _sample_rois(
+        labels, rois, bbox_targets, bbox_inside_weights, orientations = _sample_rois(
             all_rois, gt_boxes, fg_rois_per_image,
             rois_per_image, self._num_classes)
 
@@ -105,6 +107,10 @@ class ProposalTargetLayer(caffe.Layer):
         # bbox_outside_weights
         top[4].reshape(*bbox_inside_weights.shape)
         top[4].data[...] = np.array(bbox_inside_weights > 0).astype(np.float32)
+
+        # orientations
+        top[5].reshape(*orientations.shape)
+        top[5].data[...] = orientations
 
     def backward(self, top, propagate_down, bottom):
         """This layer does not propagate gradients."""
@@ -166,9 +172,21 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
     gt_assignment = overlaps.argmax(axis=1)
     max_overlaps = overlaps.max(axis=1)
     labels = gt_boxes[gt_assignment, 4]
+    orientations = gt_boxes[gt_assignment, 5]
+    dontcare_roi_inds = np.where(labels<0)[0]
+
+    care_max_overlaps_list = [max_overlaps[roi_ind]
+                        if roi_ind not in dontcare_roi_inds else 0
+                        for roi_ind, overlp in enumerate(max_overlaps)]
+    dontcare_max_overlaps = [max_overlaps[roi_ind]
+                        if roi_ind in dontcare_roi_inds else 0
+                        for roi_ind, overlp in enumerate(max_overlaps)]
+
+    care_max_overlaps = np.array(care_max_overlaps_list)
 
     # Select foreground RoIs as those with >= FG_THRESH overlap
-    fg_inds = np.where(max_overlaps >= cfg.TRAIN.FG_THRESH)[0]
+    fg_inds = np.where(np.array(care_max_overlaps) >= cfg.TRAIN.FG_THRESH)[0]
+
     # Guard against the case when an image has fewer than fg_rois_per_image
     # foreground RoIs
     fg_rois_per_this_image = min(fg_rois_per_image, fg_inds.size)
@@ -177,8 +195,8 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
         fg_inds = npr.choice(fg_inds, size=fg_rois_per_this_image, replace=False)
 
     # Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
-    bg_inds = np.where((max_overlaps < cfg.TRAIN.BG_THRESH_HI) &
-                       (max_overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
+    bg_inds = np.where((care_max_overlaps < cfg.TRAIN.BG_THRESH_HI) &
+                       (care_max_overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
     # Compute number of background RoIs to take from this image (guarding
     # against there being fewer than desired)
     bg_rois_per_this_image = rois_per_image - fg_rois_per_this_image
@@ -191,8 +209,13 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
     keep_inds = np.append(fg_inds, bg_inds)
     # Select sampled values from various arrays:
     labels = labels[keep_inds]
+    orientations = orientations[keep_inds]
+
+    assert all(orientations<8)
+
     # Clamp labels for the background RoIs to 0
     labels[fg_rois_per_this_image:] = 0
+    orientations[fg_rois_per_this_image:] = -10
     rois = all_rois[keep_inds]
 
     bbox_target_data = _compute_targets(
@@ -201,4 +224,4 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
     bbox_targets, bbox_inside_weights = \
         _get_bbox_regression_labels(bbox_target_data, num_classes)
 
-    return labels, rois, bbox_targets, bbox_inside_weights
+    return labels, rois, bbox_targets, bbox_inside_weights, orientations
