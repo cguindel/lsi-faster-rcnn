@@ -71,7 +71,7 @@ def combined_roidb(imdb_names):
     if len(roidbs) > 1:
         for r in roidbs[1:]:
             roidb.extend(r)
-        imdb = datasets.imdb(imdb_names)
+        imdb = datasets.imdb.imdb(imdb_names)
     else:
         imdb = get_imdb(imdb_names)
     return imdb, roidb
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     imdb, roidb = combined_roidb(args.imdb_name)
     print '{:d} roidb entries'.format(len(roidb))
 
-    output_dir = get_output_dir(imdb, None)
+    output_dir = get_output_dir(imdb)
     print 'Output will be saved to `{:s}`'.format(output_dir)
 
     train_net(args.solver, roidb, output_dir,

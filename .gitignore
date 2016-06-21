@@ -1,5 +1,10 @@
 *.pyc
 .ipynb_checkpoints
 lib/build
+<<<<<<< HEAD
 data/faster_rcnn_models
 kitti
+=======
+lib/pycocotools/_mask.c
+lib/pycocotools/_mask.so
+>>>>>>> upstream/master

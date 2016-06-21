@@ -4,6 +4,7 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
 # --------------------------------------------------------
+<<<<<<< HEAD
 
 from .imdb import imdb
 from .pascal_voc import pascal_voc
@@ -41,3 +42,5 @@ if _which(MATLAB) is None:
     msg = ("MATLAB command '{}' not found. "
            "Please add '{}' to your PATH.").format(MATLAB, MATLAB)
     raise EnvironmentError(msg)
+=======
+>>>>>>> upstream/master
