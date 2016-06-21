@@ -3,6 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick and Sean Bell
+# Modified at UC3M by cguindel
 # --------------------------------------------------------
 
 import caffe
@@ -26,8 +27,7 @@ class ProposalLayer(caffe.Layer):
         layer_params = yaml.load(self.param_str_)
 
         self._feat_stride = layer_params['feat_stride']
-        anchor_scales = layer_params.get('scales', (8, 16, 32))
-        self._anchors = generate_anchors(scales=np.array(anchor_scales))
+        self._anchors = generate_anchors(scales=np.array(cfg.ANCHOR_SCALES), ratios=cfg.ANCHOR_ASPECT_RATIOS)
         self._num_anchors = self._anchors.shape[0]
 
         if DEBUG:
@@ -72,10 +72,22 @@ class ProposalLayer(caffe.Layer):
         scores = bottom[0].data[:, self._num_anchors:, :, :]
         bbox_deltas = bottom[1].data
         im_info = bottom[2].data[0, :]
+		# This is for the extra RoIs: if not used, everything should be
+		# the same than Faster R-CNN with RPN
+        if len(bottom) > 3:
+          extra_rois = bottom[3].data
+          n_extra_rois = extra_rois.shape[0]
+          if n_extra_rois == 1 and np.all(extra_rois[0,:] == 0):
+            n_extra_rois = 0
+            extra_rois = np.empty((0,4), dtype=np.float32)
+        else:
+          n_extra_rois = 0
+          extra_rois = np.empty((0,4), dtype=np.float32)
 
         if DEBUG:
             print 'im_size: ({}, {})'.format(im_info[0], im_info[1])
             print 'scale: {}'.format(im_info[2])
+            print 'external_rois: {}'.format(n_extra_rois)
 
         # 1. Generate proposals from bbox deltas and shifted anchors
         height, width = scores.shape[-2:]
@@ -143,15 +155,28 @@ class ProposalLayer(caffe.Layer):
         # 8. return the top proposals (-> RoIs top)
         keep = nms(np.hstack((proposals, scores)), nms_thresh)
         if post_nms_topN > 0:
-            keep = keep[:post_nms_topN]
+            keep = keep[:(post_nms_topN-n_extra_rois)]
         proposals = proposals[keep, :]
         scores = scores[keep]
 
         # Output rois blob
         # Our RPN implementation only supports a single input image, so all
         # batch inds are 0
+        if n_extra_rois>0:
+          batch_inds = np.zeros((n_extra_rois, 1), dtype=np.float32)
+          a_extra_rois = np.hstack((batch_inds, extra_rois.astype(np.float32, copy=False)))
+
         batch_inds = np.zeros((proposals.shape[0], 1), dtype=np.float32)
-        blob = np.hstack((batch_inds, proposals.astype(np.float32, copy=False)))
+        a_proposals = np.hstack((batch_inds, proposals.astype(np.float32, copy=False)))
+
+        if n_extra_rois>0:
+          blob = np.vstack((a_extra_rois, a_proposals))
+        else:
+          blob = a_proposals
+
+        #TODO: ablation experiments
+        #blob = a_extra_rois
+
         top[0].reshape(*(blob.shape))
         top[0].data[...] = blob
 

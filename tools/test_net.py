@@ -5,6 +5,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
+# Modified at UC3M by cguindel
 # --------------------------------------------------------
 
 """Test a Fast R-CNN network on an image database."""
@@ -49,6 +50,9 @@ def parse_args():
     parser.add_argument('--num_dets', dest='max_per_image',
                         help='max number of detections per image',
                         default=100, type=int)
+    parser.add_argument('--thresh', dest='thresh',
+                        help='detection threshold',
+                        default=0.05, type=float)
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -87,4 +91,4 @@ if __name__ == '__main__':
     if not cfg.TEST.HAS_RPN:
         imdb.set_proposal_method(cfg.TEST.PROPOSAL_METHOD)
 
-    test_net(net, imdb, max_per_image=args.max_per_image, vis=args.vis)
+    test_net(net, imdb, max_per_image=args.max_per_image, thresh=args.thresh, vis=args.vis)

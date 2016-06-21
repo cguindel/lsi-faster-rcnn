@@ -3,6 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
+# Modified at UC3M by cguindel
 # --------------------------------------------------------
 
 """Fast R-CNN config system.
@@ -122,7 +123,9 @@ __C.TRAIN.RPN_BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
 # and give negatives a weight of (1 - p)
 # Set to -1.0 to use uniform example weighting
 __C.TRAIN.RPN_POSITIVE_WEIGHT = -1.0
-
+# RoIs are not considered when overlap with DontCare labels is over these thresholds:
+__C.TRAIN.RPN_DONTCARE_OVERLAP = 0.1
+__C.TRAIN.DONTCARE_OVERLAP = 0.1
 
 #
 # Testing options
@@ -162,6 +165,8 @@ __C.TEST.RPN_PRE_NMS_TOP_N = 6000
 __C.TEST.RPN_POST_NMS_TOP_N = 300
 # Proposal height and width both need to be greater than RPN_MIN_SIZE (at orig image scale)
 __C.TEST.RPN_MIN_SIZE = 16
+# Do non-maximal supression in testing
+__C.TEST.DO_NMS = True
 
 
 #
@@ -207,6 +212,22 @@ __C.USE_GPU_NMS = True
 # Default GPU device id
 __C.GPU_ID = 0
 
+# Viewpoint bins
+__C.VIEWP_BINS = 8
+__C.VIEWP_CTR = (0.39, 1.18, 1.96, 2.75,
+                -2.75, -1.96, -1.18, -0.39)
+
+# Anchors
+__C.ANCHOR_SCALES = [8, 16, 32]
+__C.ANCHOR_ASPECT_RATIOS = [0.5, 1, 2]
+
+# KITTI specific configs
+__C.CLASSES = ['__background__', # always index 0
+                'Car', 'Van', 'Truck',
+                'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram']
+__C.MAX_OCCLUDED = 3
+__C.MAX_TRUNCATED = 1.0
+__C.MIN_HEIGHT = 0
 
 def get_output_dir(imdb, net=None):
     """Return the directory where experimental artifacts are placed.

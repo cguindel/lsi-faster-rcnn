@@ -3,19 +3,16 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
+# Modified at UC3M by cguindel
 # --------------------------------------------------------
 
 """Factory method for easily getting imdbs by name."""
 
 __sets = {}
 
-<<<<<<< HEAD
-import datasets.pascal_voc
-import datasets.kitti
-=======
 from datasets.pascal_voc import pascal_voc
 from datasets.coco import coco
->>>>>>> upstream/master
+from datasets.kitti import kitti
 import numpy as np
 
 # Set up voc_<year>_<split> using selective search "fast" mode
@@ -36,10 +33,10 @@ for year in ['2015']:
         name = 'coco_{}_{}'.format(year, split)
         __sets[name] = (lambda split=split, year=year: coco(split, year))
 
-for split in ['training', 'testing', 'subtraining', 'subtesting']:
+# Set up kitti_<split>
+for split in ['training', 'testing', 'subtraining', 'subtesting', 'trainsplit', 'valsplit']:
     name = 'kitti_{}'.format(split)
-    __sets[name] = (lambda split=split:
-            datasets.kitti(split))
+    __sets[name] = (lambda split=split: kitti(split))
 
 def get_imdb(name):
     """Get an imdb (image database) by name."""

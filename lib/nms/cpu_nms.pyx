@@ -3,6 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
+# Modified at UC3M by cguindel
 # --------------------------------------------------------
 
 import numpy as np
@@ -42,7 +43,7 @@ def cpu_nms(np.ndarray[np.float32_t, ndim=2] dets, np.float thresh):
     keep = []
     for _i in range(ndets):
         i = order[_i]
-        if suppressed[i] == 1:
+        if suppressed[i] > 0:
             continue
         keep.append(i)
         ix1 = x1[i]
@@ -52,7 +53,7 @@ def cpu_nms(np.ndarray[np.float32_t, ndim=2] dets, np.float thresh):
         iarea = areas[i]
         for _j in range(_i + 1, ndets):
             j = order[_j]
-            if suppressed[j] == 1:
+            if suppressed[j] > 0:
                 continue
             xx1 = max(ix1, x1[j])
             yy1 = max(iy1, y1[j])
@@ -63,6 +64,6 @@ def cpu_nms(np.ndarray[np.float32_t, ndim=2] dets, np.float thresh):
             inter = w * h
             ovr = inter / (iarea + areas[j] - inter)
             if ovr >= thresh:
-                suppressed[j] = 1
+                suppressed[j] = i
 
-    return keep
+    return keep, suppressed

@@ -3,6 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
+# Modified at UC3M by cguindel
 # --------------------------------------------------------
 
 """Compute minibatch blobs for training a Fast R-CNN network."""
@@ -12,6 +13,8 @@ import numpy.random as npr
 import cv2
 from fast_rcnn.config import cfg
 from utils.blob import prep_im_for_blob, im_list_to_blob
+
+DEBUG = False
 
 def get_minibatch(roidb, num_classes):
     """Given a roidb, construct a minibatch sampled from it."""
@@ -28,6 +31,10 @@ def get_minibatch(roidb, num_classes):
     # Get the input image blob, formatted for caffe
     im_blob, im_scales = _get_image_blob(roidb, random_scale_inds)
 
+    if DEBUG:
+      print '~~~MINIBATCH~~~'
+      print 'roidb', roidb
+
     blobs = {'data': im_blob}
 
     if cfg.TRAIN.HAS_RPN:
@@ -38,7 +45,8 @@ def get_minibatch(roidb, num_classes):
         gt_boxes = np.empty((len(gt_inds), 6), dtype=np.float32)
         gt_boxes[:, 0:4] = roidb[0]['boxes'][gt_inds, :] * im_scales[0]
         gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
-        gt_boxes[:, 5] = roidb[0]['gt_orientations'][gt_inds]
+        gt_boxes[:, 5] = roidb[0]['gt_viewpoints'][gt_inds]
+        # Check --by the flies--
         for x in xrange(len(gt_inds)):
             if gt_boxes[x, 4]==-1:
                 assert gt_boxes[x, 5]==-10
@@ -46,6 +54,8 @@ def get_minibatch(roidb, num_classes):
         blobs['im_info'] = np.array(
             [[im_blob.shape[2], im_blob.shape[3], im_scales[0]]],
             dtype=np.float32)
+        if DEBUG:
+          _vis_minibatch_rpn(im_blob, gt_boxes, gt_boxes[:, 4])
 
     else: # not using RPN
         # Now, build the region of interest and label blobs
@@ -194,6 +204,7 @@ def _vis_minibatch(im_blob, rois_blob, labels_blob, overlaps):
         im = im[:, :, (2, 1, 0)]
         im = im.astype(np.uint8)
         cls = labels_blob[i]
+        plt.figure("Input")
         plt.imshow(im)
         print 'class: ', cls, ' overlap: ', overlaps[i]
         plt.gca().add_patch(
@@ -202,3 +213,25 @@ def _vis_minibatch(im_blob, rois_blob, labels_blob, overlaps):
                           edgecolor='r', linewidth=3)
             )
         plt.show()
+
+def _vis_minibatch_rpn(im_blob, bboxes, classes):
+    """Visualize a mini-batch for debugging."""
+    CLASS_COLOR = ((0,0,0),
+        (0,0,1), (0,0.5,1),(0,0.75,1),(1,0,0),
+        (1,0.5,0.5),(0,1,1), (1,1,1), (0,0,0))
+
+    import matplotlib.pyplot as plt
+    im = im_blob[0, :, :, :].transpose((1, 2, 0)).copy()
+    im += cfg.PIXEL_MEANS
+    im = im[:, :, (2, 1, 0)]
+    im = im.astype(np.uint8)
+    plt.figure("Input")
+    plt.imshow(im)
+    for i in xrange(bboxes.shape[0]):
+        roi = bboxes[i,:]
+        plt.gca().add_patch(
+            plt.Rectangle((roi[0], roi[1]), roi[2] - roi[0],
+                          roi[3] - roi[1], fill=False,
+                          edgecolor=CLASS_COLOR[int(classes[i]+1)], linewidth=3)
+            )
+    plt.show(block=False)

@@ -3,6 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
+# Modified at UC3M by cguindel
 # --------------------------------------------------------
 
 """Test a Fast R-CNN network on an imdb (image database)."""
@@ -181,28 +182,33 @@ def im_detect(net, im, boxes=None):
         scores = scores[inv_index, :]
         pred_boxes = pred_boxes[inv_index, :]
 
-    orientations = blobs_out['orient_prob']
+    viewpoints = blobs_out['viewpoint_pred']
 
-    return scores, pred_boxes, orientations
+    return scores, pred_boxes, viewpoints
 
-def vis_detections(im, class_name, dets, thresh=0.3):
+def vis_detections(im, class_name, dets, gt=[], thresh=0.3):
+
+    CLASS_COLOR = ((0,0,0),
+        (0,0,255), (0,128,255),(0,192,255),(255,0,0),
+        (255,128,128),(0,255,255), (255,255,255), (0,0,0))
+
     """Visual debugging of detections."""
     import matplotlib.pyplot as plt
+    plt.cla()
     im = im[:, :, (2, 1, 0)]
-    for i in xrange(np.minimum(10, dets.shape[0])):
+    plt.imshow(im)
+    for i in xrange(dets.shape[0]):
         bbox = dets[i, :4]
-        score = dets[i, -1]
+        score = dets[i, -2]
         if score > thresh:
-            plt.cla()
-            plt.imshow(im)
             plt.gca().add_patch(
                 plt.Rectangle((bbox[0], bbox[1]),
                               bbox[2] - bbox[0],
                               bbox[3] - bbox[1], fill=False,
-                              edgecolor='g', linewidth=3)
+                              edgecolor=tuple(CLASS_COLOR[int(dets[i, -1])][chn]/255.0 for chn in xrange(3)), linewidth=3)
                 )
-            plt.title('{}  {:.3f}'.format(class_name, score))
-            plt.show()
+            #plt.title('{}  {:.3f}'.format(class_name, score))
+    plt.show()
 
 def apply_nms(all_boxes, thresh):
     """Apply non-maximum suppression to all predicted boxes output by the
@@ -217,25 +223,29 @@ def apply_nms(all_boxes, thresh):
             dets = all_boxes[cls_ind][im_ind]
             if dets == []:
                 continue
-<<<<<<< HEAD
-            keep = nms(dets[:,:5], thresh)
-=======
             # CPU NMS is much faster than GPU NMS when the number of boxes
             # is relative small (e.g., < 10k)
             # TODO(rbg): autotune NMS dispatch
             keep = nms(dets, thresh, force_cpu=True)
->>>>>>> upstream/master
             if len(keep) == 0:
                 continue
             nms_boxes[cls_ind][im_ind] = dets[keep, :].copy()
     return nms_boxes
 
+def softmax(x):
+    """Compute softmax values for each sets of scores in x."""
+    den = np.sum(np.exp(x), axis=1)
+    return np.exp(x) / den[:, np.newaxis]
+
 def test_net(net, imdb, max_per_image=100, thresh=0.05, vis=False):
     """Test a Fast R-CNN network on an image database."""
+    if vis:
+        from datasets.kitti import kitti
+        kitti = kitti("valsplit")
     num_images = len(imdb.image_index)
     # all detections are collected into:
     #    all_boxes[cls][image] = N x 5 array of detections in
-    #    (x1, y1, x2, y2, score)
+    #    (x1, y1, x2, y2, score, 8 x viewpoint prob. dist)
     all_boxes = [[[] for _ in xrange(num_images)]
                  for _ in xrange(imdb.num_classes)]
 
@@ -246,8 +256,11 @@ def test_net(net, imdb, max_per_image=100, thresh=0.05, vis=False):
 
     if not cfg.TEST.HAS_RPN:
         roidb = imdb.roidb
+    ndetections = 0
 
-    for i in xrange(num_images):
+    for i, img_file in enumerate(imdb.image_index):
+
+        detts = np.empty([0, 6])
         # filter out any ground truth boxes
         if cfg.TEST.HAS_RPN:
             box_proposals = None
@@ -261,72 +274,60 @@ def test_net(net, imdb, max_per_image=100, thresh=0.05, vis=False):
 
         im = cv2.imread(imdb.image_path_at(i))
         _t['im_detect'].tic()
-        scores, boxes, orientations = im_detect(net, im, box_proposals)
+        scores, boxes, viewpoints = im_detect(net, im, box_proposals)
         _t['im_detect'].toc()
 
         _t['misc'].tic()
         # skip j = 0, because it's the background class
         for j in xrange(1, imdb.num_classes):
             inds = np.where(scores[:, j] > thresh)[0]
+            ndetections += len(inds)
             cls_scores = scores[inds, j]
             cls_boxes = boxes[inds, j*4:(j+1)*4]
-<<<<<<< HEAD
-            cls_sc_orient = orientations[inds, :]
-            top_inds = np.argsort(-cls_scores)[:max_per_image]
-            cls_scores = cls_scores[top_inds]
-            cls_boxes = cls_boxes[top_inds, :]
-            cls_sc_orient = cls_sc_orient[top_inds, :]
-
-            # push new scores onto the minheap
-            for val in cls_scores:
-                heapq.heappush(top_scores[j], val)
-            # if we've collected more than the max number of detection,
-            # then pop items off the minheap and update the class threshold
-            if len(top_scores[j]) > max_per_set:
-                while len(top_scores[j]) > max_per_set:
-                    heapq.heappop(top_scores[j])
-                thresh[j] = top_scores[j][0]
-
-            all_boxes[j][i] = \
-                    np.hstack((cls_boxes, cls_scores[:, np.newaxis], cls_sc_orient)) \
-                    .astype(np.float32, copy=False)
-
-            if 0:
-                keep = nms(all_boxes[j][i], 0.3)
-                vis_detections(im, imdb.classes[j], all_boxes[j][i][keep, :])
-=======
-            cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
+            #Softmax is only performed over the class 8x "slot"
+            #(that is why we dont let it be performed by caffe)
+            cls_viewp = softmax(viewpoints[inds, j*8:(j+1)*8])
+            cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis], cls_viewp)) \
                 .astype(np.float32, copy=False)
-            keep = nms(cls_dets, cfg.TEST.NMS)
-            cls_dets = cls_dets[keep, :]
+            # Assert that the result from softmax makes sense
+            assert(all(abs(np.sum(cls_viewp, axis=1)-1)<0.1))
+            if cfg.TEST.DO_NMS:
+              nms_returns = nms(cls_dets[:,:-8], cfg.TEST.NMS, force_cpu=True)
+              if nms_returns:
+                keep = nms_returns[0]
+                suppress = nms_returns[1]
+              else:
+                keep = []
+              cls_dets = cls_dets[keep, :]
+            else:
+              cls_dets=cls_dets[cls_dets[:,-9].argsort()[::-1],:]
+
             if vis:
-                vis_detections(im, imdb.classes[j], cls_dets)
+              pre_detts = np.hstack((np.array(cls_dets[:,:5]), j*np.ones((np.array(cls_dets[:,:5]).shape[0],1))))
+              detts = np.vstack((detts, pre_detts))
+
             all_boxes[j][i] = cls_dets
+
+        if vis:
+          vis_detections(im, imdb.classes, detts)
+          gt_roidb = kitti._load_kitti_annotation(img_file)
 
         # Limit to max_per_image detections *over all classes*
         if max_per_image > 0:
-            image_scores = np.hstack([all_boxes[j][i][:, -1]
+            assert(1==0) #We don't want to do this currently
+            image_scores = np.hstack([all_boxes[j][i][:, -9]
                                       for j in xrange(1, imdb.num_classes)])
             if len(image_scores) > max_per_image:
                 image_thresh = np.sort(image_scores)[-max_per_image]
                 for j in xrange(1, imdb.num_classes):
-                    keep = np.where(all_boxes[j][i][:, -1] >= image_thresh)[0]
+                    keep = np.where(all_boxes[j][i][:, -9] >= image_thresh)[0]
                     all_boxes[j][i] = all_boxes[j][i][keep, :]
->>>>>>> upstream/master
         _t['misc'].toc()
 
-        print 'im_detect: {:d}/{:d} {:.3f}s {:.3f}s' \
-              .format(i + 1, num_images, _t['im_detect'].average_time,
+        print 'im_detect: {:d}/{:d} - {:d} detections - {:.3f}s {:.3f}s' \
+              .format(i + 1, num_images, ndetections,_t['im_detect'].average_time,
                       _t['misc'].average_time)
 
-<<<<<<< HEAD
-    for j in xrange(1, imdb.num_classes):
-        for i in xrange(num_images):
-            inds = np.where(all_boxes[j][i][:, -9] > thresh[j])[0]
-            all_boxes[j][i] = all_boxes[j][i][inds, :]
-
-=======
->>>>>>> upstream/master
     det_file = os.path.join(output_dir, 'detections.pkl')
     with open(det_file, 'wb') as f:
         cPickle.dump(all_boxes, f, cPickle.HIGHEST_PROTOCOL)

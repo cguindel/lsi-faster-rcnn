@@ -3,38 +3,45 @@
 # training:kitti/object/testing/image_2/[from 000 to 007480.png]
 # testing: 007517.png
 
-import datasets
-import datasets.kitti
+from datasets.imdb import imdb
 import os
-import datasets.imdb
-import xml.dom.minidom as minidom
 import numpy as np
 import scipy.sparse
 import scipy.io as sio
-import utils.cython_bbox
 import cPickle
-import subprocess
+import uuid
+from fast_rcnn.config import cfg
 import math
+import matplotlib.pyplot as plt
 
-class kitti(datasets.imdb):
+DEBUG = False
+STATS = False
+
+class kitti(imdb):
     def __init__(self, image_set, devkit_path=None):
-        datasets.imdb.__init__(self, 'kitti_' + image_set)
+        imdb.__init__(self, 'kitti_' + image_set)
         self._image_set = image_set
         self._devkit_path = self._get_default_path() if devkit_path is None \
                             else devkit_path
         self._data_path = os.path.join(self._devkit_path, 'object')
-        self._classes = ('__background__', # always index 0
-                         'Car', 'Van', 'Truck',
-                         'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram',
-                         'Misc')
+        self._classes = tuple(cfg.CLASSES)
         self._class_to_ind = dict(zip(self.classes, xrange(self.num_classes)))
         self._image_ext = '.png'
         self._image_index = self._load_image_set_index()
         # Default to roidb handler
         self._roidb_handler = self.dollar_roidb
+        self._salt = str(uuid.uuid4())
+        self._comp_id = 'comp4'
+
         # 8 orientation bins:
         self._orientations = (0.39, 1.18, 1.96, 2.75,
                                 -2.75, -1.96, -1.18, -0.39, 1.57)
+
+        if STATS:
+            self.aspect_ratios = []
+            self.widths = []
+            self.heights = []
+            self.areas = []
 
         assert os.path.exists(self._devkit_path), \
                 'KITTI devkit path does not exist: {}'.format(self._devkit_path)
@@ -54,7 +61,7 @@ class kitti(datasets.imdb):
         image_path = os.path.join(self._data_path, self._image_set, 'image_2',
                                   index + self._image_ext)
         assert os.path.exists(image_path), \
-                'Path does not exist: {}'.format(image_path)        #bool_arr = np.array([p_obj['type'].strip() != 'DontCare' for p_obj in pre_objs])
+                'Path does not exist: {}'.format(image_path)
 
         return image_path
 
@@ -69,15 +76,14 @@ class kitti(datasets.imdb):
         assert os.path.exists(image_set_file), \
                 'Path does not exist: {}'.format(image_set_file)
         with open(image_set_file) as f:
-            image_index = [x.strip() for x in f.readlines()]
-
+            image_index = [x.strip().zfill(6) for x in f.readlines()]
         return image_index
 
     def _get_default_path(self):
         """
         Return the default path where PASCAL VOC is expected to be installed.
         """
-        return os.path.join(datasets.ROOT_DIR, 'data', 'kitti')
+        return os.path.join(cfg.DATA_DIR, 'kitti')
 
     def gt_roidb(self):
         """
@@ -94,6 +100,20 @@ class kitti(datasets.imdb):
 
         gt_roidb = [self._load_kitti_annotation(index)
                     for index in self.image_index]
+        if STATS:
+          plt.figure("Ratios")
+          plt.hist(self.aspect_ratios, bins=[0, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95, 1.05, 1.15, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85, 1.95, 2.05, 2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85, 2.95, 3.05, 3.15, 3.25, 3.35, 3.45, 3.55, 3.65, 3.75, 3.85, 3.95, 4.05], normed=True)
+          plt.show()
+          plt.figure("Widths")
+          plt.hist(self.widths)
+          plt.show()
+          plt.figure("Heights")
+          plt.hist(self.heights)
+          plt.show()
+          plt.figure("Areas")
+          plt.hist(self.areas, bins=[50, 150, 250, 350, 450, 550, 650, 750, 850, 950, 1050, 1150, 1250, 1350, 1450, 1550, 1650, 1750, 1850, 1950, 2050, 2150, 2250, 2350, 2450, 2550, 2650, 2750, 2850, 2950, 3050, 3150, 3250, 3350, 3450, 3550])
+          plt.show()
+
         with open(cache_file, 'wb') as fid:
             cPickle.dump(gt_roidb, fid, cPickle.HIGHEST_PROTOCOL)
         print 'wrote gt roidb to {}'.format(cache_file)
@@ -122,10 +142,12 @@ class kitti(datasets.imdb):
 
         num_objs = pre_objs.size
 
-        boxes = np.zeros((num_objs, 4), dtype=np.uint16)
+        boxes = np.zeros((num_objs, 4), dtype=np.float32)
         gt_classes = np.zeros((num_objs), dtype=np.int32)
         overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
-        gt_orientation = np.zeros((num_objs), dtype=np.int32)
+        gt_orientation = np.zeros((num_objs), dtype=np.float32)
+        # "Seg" area for kitti is just the box area ??
+        seg_areas = np.zeros((num_objs), dtype=np.float32)
 
         # Load object bounding boxes into a data frame.
         for ix, obj in enumerate(pre_objs):
@@ -133,38 +155,49 @@ class kitti(datasets.imdb):
             y1 = obj['bbox_ymin']
             x2 = obj['bbox_xmax']
             y2 = obj['bbox_ymax']
-            if obj['type'].strip() != 'DontCare' :
+            if obj['type'].strip() not in self._classes \
+            or (obj['truncated']>cfg.MAX_TRUNCATED) \
+            or (obj['occluded']>cfg.MAX_OCCLUDED) \
+            or (y2-y1<cfg.MIN_HEIGHT):
+                gt_classes[ix] = -1
+            else:
                 cls = self._class_to_ind[str(obj['type'].strip())]
                 gt_classes[ix] = cls
-            else :
-                #DontCare is assigned index -1
-                gt_classes[ix] = -1
-            # KITTI boxes have one decimal place
-            boxes[ix, :] = [round(x1), round(y1), round(x2), round(y2)]
-            overlaps[ix, cls] = 1.0
-            if obj['alpha'] != -10 :
-                # Assign an orientation bin for every object
-                if obj['alpha']<0 :
-                    angle = math.floor((6.28319+obj['alpha'])/0.785398)
-                else:
-                    angle = math.floor((obj['alpha'])/0.785398)
-            else:
-                angle = -10;
+                overlaps[ix, cls] = 1.0
+                if STATS:
+                  self.aspect_ratios.append((y2 - y1)/(x2 - x1))
+                  self.widths.append((x2 - x1))
+                  self.heights.append((y2 - y1))
+                  self.areas.append((x2 - x1)*(y2 - y1))
+            boxes[ix, :] = [x1, y1, x2, y2]
+            seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
+            gt_orientation[ix] = obj['alpha']
 
-            gt_orientation[ix] = angle
-            # Checks
+            # Undefined angle if class is not valid
             if gt_classes[ix] == -1:
-                assert gt_orientation[ix]==-10
+                gt_orientation[ix]=-10
             else:
                 assert gt_orientation[ix]<8
 
         overlaps = scipy.sparse.csr_matrix(overlaps)
 
+        if DEBUG:
+            print index
+            print {'boxes' : boxes,
+                    'gt_classes': gt_classes,
+                    'gt_viewpoints' : gt_orientation,
+                    'flipped' : False,
+                    'seg_areas' : seg_areas
+                    }
+            print 'overlaps', overlaps.todense()
+
         return {'boxes' : boxes,
                 'gt_classes': gt_classes,
                 'gt_overlaps' : overlaps,
+                'gt_viewpoints' : gt_orientation,
                 'flipped' : False,
-                'gt_orientations' : gt_orientation}
+                'seg_areas' : seg_areas
+                }
 
     def dollar_roidb(self):
         """
@@ -173,6 +206,7 @@ class kitti(datasets.imdb):
 
         This function loads/saves from/to a cache file to speed up future calls.
         """
+        print 'Called dollar_roidb'
         cache_file = os.path.join(self.cache_path,
                                   self.name + '_dollar_roidb.pkl')
 
@@ -184,7 +218,7 @@ class kitti(datasets.imdb):
 
         gt_roidb = self.gt_roidb()
         ss_roidb = self._load_dollar_roidb(gt_roidb)
-        roidb = datasets.imdb.merge_roidbs(gt_roidb, ss_roidb)
+        roidb = imdb.merge_roidbs(gt_roidb, ss_roidb)
 
         with open(cache_file, 'wb') as fid:
             cPickle.dump(roidb, fid, cPickle.HIGHEST_PROTOCOL)
@@ -193,6 +227,7 @@ class kitti(datasets.imdb):
         return roidb
 
     def _load_dollar_roidb(self, gt_roidb):
+        print 'Called _load_dollar_roidb'
         filename = os.path.abspath(os.path.join(self.cache_path, '..',
                                                 'edges_data',
                                                 self.name + '.mat'))
@@ -216,7 +251,7 @@ class kitti(datasets.imdb):
         path = os.path.join(self._devkit_path, 'results', comp_id, '')
 
         for im_ind, index in enumerate(self.image_index):
-            print 'Writing {} VOC results file'.format(index)
+            print 'Writing {} KITTI results file'.format(index)
             filename = path + index + '.txt'
             if not os.path.exists(os.path.dirname(filename)):
                 try:
@@ -241,12 +276,14 @@ class kitti(datasets.imdb):
                         assert np.amax(angle) < 8
                         angle_bin = np.argmax(angle)
                         # KITTI expects 0-based indices
-                        f.write('{:s} -1 -1 {:.2f} {:.1f} {:.1f} {:.1f} {:.1f} -1 -1 -1 -1000 -1000 -1000 -10 {:.3f}\n'.
+                        f.write('{:s} -1 -1 {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} -1 -1 -1 -1000 -1000 -1000 -10 {:.6f}\n'.
                                 format(write_cls,
-                                       self._orientations[angle_bin],
+                                       cfg.VIEWP_CTR[angle_bin],
                                        dets[k, 0], dets[k, 1],
                                        dets[k, 2], dets[k, 3],
                                        dets[k, -9]))
+
+        print 'Results were saved in', comp_id
 
     def competition_mode(self, on):
         """
@@ -255,6 +292,6 @@ class kitti(datasets.imdb):
         print 'Wow, competition mode. Doing nothing...'
 
 if __name__ == '__main__':
-    d = datasets.kitti('training')
+    d = kitti('training')
     res = d.roidb
     from IPython import embed; embed()

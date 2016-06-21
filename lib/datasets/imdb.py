@@ -3,6 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
+# Modified at UC3M by cguindel
 # --------------------------------------------------------
 
 import os
@@ -12,6 +13,7 @@ from utils.cython_bbox import bbox_overlaps
 import numpy as np
 import scipy.sparse
 from fast_rcnn.config import cfg
+from math import pi
 
 class imdb(object):
     """Image database."""
@@ -62,7 +64,7 @@ class imdb(object):
         #   gt_overlaps
         #   gt_classes
         #   flipped
-        #   orientation
+        #   viewpoint (orientation)
         if self._roidb is not None:
             return self._roidb
         self._roidb = self.roidb_handler()
@@ -96,10 +98,11 @@ class imdb(object):
         """
         raise NotImplementedError
 
-<<<<<<< HEAD
-    def rotate_element(self, a):
+    def _rotate_element(self, a):
         """
-         Flip horizontally an object in the image
+        Flip horizontally an object in the image
+        when viewpoint is given as a bin
+        Currently deprecated
         """
         switcher = {
             0: 3,
@@ -113,11 +116,20 @@ class imdb(object):
         }
         # Returns -10 by default
         return switcher.get(a, -10)
-=======
+
+    def _rotate_angle(self,angle):
+        """
+        Flip horizontally an object in the image
+        when viewpoint is given as an angle
+        """
+        if angle>=0:
+          return pi-angle
+        else:
+          return -pi-angle
+
     def _get_widths(self):
       return [PIL.Image.open(self.image_path_at(i)).size[0]
               for i in xrange(self.num_images)]
->>>>>>> upstream/master
 
     def append_flipped_images(self):
         num_images = self.num_images
@@ -129,9 +141,14 @@ class imdb(object):
             boxes[:, 0] = widths[i] - oldx2 - 1
             boxes[:, 2] = widths[i] - oldx1 - 1
             assert (boxes[:, 2] >= boxes[:, 0]).all()
-            # Orientation
-            orient_raw = self.roidb[i]['gt_orientations'].copy()
-            orient = [self.rotate_element(orient_raw[elem])
+            # Viewpoint
+            orient_raw = self.roidb[i]['gt_viewpoints'].copy()
+            #Viewpoint as a bin (deprecated)
+            #orient = [self._rotate_element(orient_raw[elem])
+            #            if rads!=-10 else -10
+            #            for elem, rads in enumerate(orient_raw) ]
+            #Viewpoint as an angle (float)
+            orient = [self._rotate_angle(orient_raw[elem])
                         if rads!=-10 else -10
                         for elem, rads in enumerate(orient_raw) ]
 
@@ -139,7 +156,9 @@ class imdb(object):
                      'gt_overlaps' : self.roidb[i]['gt_overlaps'],
                      'gt_classes' : self.roidb[i]['gt_classes'],
                      'flipped' : True,
-                     'gt_orientations' : np.array(orient)}
+                     'gt_viewpoints' : np.array(orient),
+                     'seg_areas' : self.roidb[i]['seg_areas']
+                     }
             self.roidb.append(entry)
         self._image_index = self._image_index * 2
 

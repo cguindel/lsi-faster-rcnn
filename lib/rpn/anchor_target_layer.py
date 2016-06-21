@@ -3,6 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick and Sean Bell
+# Modified at UC3M by cguindel
 # --------------------------------------------------------
 
 import os
@@ -13,7 +14,7 @@ import numpy as np
 import numpy.random as npr
 from generate_anchors import generate_anchors
 from utils.cython_bbox import bbox_overlaps
-from fast_rcnn.bbox_transform import bbox_transform
+from fast_rcnn.bbox_transform import bbox_transform, bbox_transform_inv
 
 DEBUG = False
 
@@ -25,8 +26,8 @@ class AnchorTargetLayer(caffe.Layer):
 
     def setup(self, bottom, top):
         layer_params = yaml.load(self.param_str_)
-        anchor_scales = layer_params.get('scales', (8, 16, 32))
-        self._anchors = generate_anchors(scales=np.array(anchor_scales))
+        anchor_scales = cfg.ANCHOR_SCALES
+        self._anchors = generate_anchors(scales=np.array(anchor_scales), ratios=cfg.ANCHOR_ASPECT_RATIOS)
         self._num_anchors = self._anchors.shape[0]
         self._feat_stride = layer_params['feat_stride']
 
@@ -76,7 +77,7 @@ class AnchorTargetLayer(caffe.Layer):
 
         # map of shape (..., H, W)
         height, width = bottom[0].data.shape[-2:]
-        # GT boxes (x1, y1, x2, y2, label, orient)
+        # GT boxes (x1, y1, x2, y2, label, viewpoint)
         gt_boxes = bottom[1].data
         # We don't want orientation here
         gt_boxes = gt_boxes[:,:-1]
@@ -84,7 +85,10 @@ class AnchorTargetLayer(caffe.Layer):
         im_info = bottom[2].data[0, :]
 
         if DEBUG:
-            print ''
+            if len(bottom)>2:
+                img = bottom[3].data
+            np.set_printoptions(threshold=np.nan)
+            print '~~~ ANCHOR_TARGET_LAYER ~~~'
             print 'im_size: ({}, {})'.format(im_info[0], im_info[1])
             print 'scale: {}'.format(im_info[2])
             print 'height, width: ({}, {})'.format(height, width)
@@ -132,7 +136,7 @@ class AnchorTargetLayer(caffe.Layer):
         """
         This is hardly modified from the original because we want to
         manage DontCare labels. They are assigned -1 class index.
-        Later steps already knew how to handle -1.
+        Later layers already knew how to handle -1.
         """
         # Find care/dontcare gt_boxes indices
         dontcare_gt_inds = np.where(gt_boxes[:,4]<0)[0]
@@ -143,43 +147,55 @@ class AnchorTargetLayer(caffe.Layer):
         overlaps = bbox_overlaps(
             np.ascontiguousarray(anchors, dtype=np.float),
             np.ascontiguousarray(gt_boxes, dtype=np.float))
+
+        # argmax_overlaps: assigned gt_boxes for each anchor
         argmax_overlaps = overlaps.argmax(axis=1)
+
+        # max_overlaps: overlap value over the corresponding gt_box
+        # for each anchor
         max_overlaps = overlaps[np.arange(len(inds_inside)), argmax_overlaps]
+
+        # gt_argmax_overlaps: assigned anchor for each gt_box (i.e. anchor
+        # indices with greater overlapping with each gt_box
         gt_argmax_overlaps = overlaps.argmax(axis=0)
-        # gt_argmax_overlaps: anchor indices with greater overlapping with each
-        # gt_box
+        # gt_max_overlaps: overlap value over the corresponding max-anchor
         gt_max_overlaps = overlaps[gt_argmax_overlaps,
-                                    np.arange(overlaps.shape[1])]
-        # gt_max_overlaps: max overlapping with each gt_box
+                                   np.arange(overlaps.shape[1])]
 
         # Find anchor indices whose greater overlapping is over a dontcare
         # gt_box
-        dontcare_anchor_inds = [
+        dontcare_anchor_inds_list = [
             anchor_ind for anchor_ind, gt_box in enumerate(argmax_overlaps)
             if gt_box in dontcare_gt_inds]
+        dontcare_anchor_inds = np.array(dontcare_anchor_inds_list)
 
-        gt_dontcare_argmax_overlaps = [gt_argmax_overlaps[i]
-                                        for i in dontcare_gt_inds]
         # gt_dontcare_argmax_overlaps: Anchor indices that are max overlappers
         # over a dontcare gt_box
-        gt_care_argmax_overlaps = [gt_argmax_overlaps[i]
-                                    for i in care_gt_inds]
+        gt_dontcare_argmax_overlaps = np.array([gt_argmax_overlaps[i]
+                                        for i in dontcare_gt_inds])
         # gt_care_argmax_overlaps: Anchor indices that are max overlappers over
         # a dontcare gt_box
+        gt_care_argmax_overlaps = np.array([gt_argmax_overlaps[i]
+                                    for i in care_gt_inds])
 
+        # Overlap values for the previous anchor indices
         gt_dontcare_max_overlaps = overlaps[gt_dontcare_argmax_overlaps,
                                    dontcare_gt_inds]
         gt_care_max_overlaps = overlaps[gt_care_argmax_overlaps,
                                care_gt_inds]
 
+        # gt_argmax_overlaps: Anchor indices that are max overlappers over
+        # any gt_box
         gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
 
+        # Anchor indices that are max overlappers over care/dontcare gt_boxes
         gt_dontcare_argmax_overlaps = np.where(
             overlaps[:,dontcare_gt_inds] == gt_dontcare_max_overlaps)[0]
         gt_care_argmax_overlaps = np.where(
             overlaps[:,care_gt_inds] == gt_care_max_overlaps)[0]
 
         if not cfg.TRAIN.RPN_CLOBBER_POSITIVES:
+            # Configuration performs this by default
             # assign bg labels first so that positive labels can clobber them
             labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
 
@@ -187,18 +203,28 @@ class AnchorTargetLayer(caffe.Layer):
         labels[gt_care_argmax_overlaps] = 1
         labels[gt_dontcare_argmax_overlaps] = -1
 
-        care_max_overlaps = [max_overlaps[anchor_ind]
+        # Overlap value for every care/dontcare anchor
+        care_max_overlaps_list = [max_overlaps[anchor_ind]
                             if anchor_ind not in dontcare_anchor_inds else 0
                             for anchor_ind, overlp in enumerate(max_overlaps)]
-        dontcare_max_overlaps = [max_overlaps[anchor_ind]
+        dontcare_max_overlaps_list = [max_overlaps[anchor_ind]
                             if anchor_ind in dontcare_anchor_inds else 0
                             for anchor_ind, overlp in enumerate(max_overlaps)]
 
+        care_max_overlaps = np.array(care_max_overlaps_list)
+        dontcare_max_overlaps = np.array(dontcare_max_overlaps_list)
+
         # fg label: above threshold IOU
         labels[care_max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
-        labels[dontcare_max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = -1
+
+        # dontcare label: above DONTCARE threshold IoU
+        labels[dontcare_max_overlaps > cfg.TRAIN.RPN_POSITIVE_OVERLAP] = -1
+
+        # Here we will double check dontcares according to its threshold
+        labels[np.where(overlaps[:,dontcare_gt_inds]>cfg.TRAIN.RPN_DONTCARE_OVERLAP)[0]] = -1
 
         if cfg.TRAIN.RPN_CLOBBER_POSITIVES:
+            # Not active by default
             # assign bg labels last so that negative labels can clobber positives
             labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
 
@@ -267,6 +293,8 @@ class AnchorTargetLayer(caffe.Layer):
             print 'rpn: num_positive avg', self._fg_sum / self._count
             print 'rpn: num_negative avg', self._bg_sum / self._count
 
+            _vis_whats_happening(img, anchors, bbox_targets[inds_inside], labels[inds_inside])
+
         # labels
         labels = labels.reshape((1, height, width, A)).transpose(0, 3, 1, 2)
         labels = labels.reshape((1, 1, A * height, width))
@@ -326,3 +354,51 @@ def _compute_targets(ex_rois, gt_rois):
     assert gt_rois.shape[1] == 5
 
     return bbox_transform(ex_rois, gt_rois[:, :4]).astype(np.float32, copy=False)
+
+def _vis_whats_happening(im_blob, bboxes, targets, labels):
+    """Visualize a mini-batch for debugging."""
+    import matplotlib.pyplot as plt
+    import random
+    im = im_blob[0, :, :, :].transpose((1, 2, 0)).copy()
+    im += cfg.PIXEL_MEANS
+    im = im[:, :, (2, 1, 0)]
+    im = im.astype(np.uint8)
+    plt.figure("RPN anchors no-targets")
+    plt.imshow(im)
+    plt.figure("RPN anchors targets")
+    plt.imshow(im)
+    rois = bbox_transform_inv(bboxes, targets)
+    for i in xrange(bboxes.shape[0]):
+        color = np.random.rand(3,1)
+
+        if labels[i]>0:
+          roi = bboxes[i,:]
+          plt.figure("RPN anchors no-targets")
+          plt.gca().add_patch(
+              plt.Rectangle((roi[0], roi[1]), roi[2] - roi[0],
+                          roi[3] - roi[1], fill=False,
+                          edgecolor=color, linewidth=4)
+              )
+          roi = rois[i, :]
+          plt.figure("RPN anchors targets")
+          plt.gca().add_patch(
+              plt.Rectangle((roi[0], roi[1]), roi[2] - roi[0],
+                          roi[3] - roi[1], fill=False,
+                          edgecolor=color, linewidth=4)
+              )
+        if labels[i]==0:
+          roi = bboxes[i,:]
+          plt.figure("RPN anchors no-targets")
+          plt.gca().add_patch(
+              plt.Rectangle((roi[0], roi[1]), roi[2] - roi[0],
+                          roi[3] - roi[1], fill=False,
+                          edgecolor=color, linewidth=1)
+              )
+          #roi = rois[i, :]
+          plt.figure("RPN anchors targets")
+          plt.gca().add_patch(
+              plt.Rectangle((roi[0], roi[1]), roi[2] - roi[0],
+                          roi[3] - roi[1], fill=False,
+                          edgecolor=color, linewidth=1)
+              )
+    plt.show(block=False)
