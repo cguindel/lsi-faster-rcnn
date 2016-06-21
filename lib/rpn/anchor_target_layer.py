@@ -186,17 +186,10 @@ class AnchorTargetLayer(caffe.Layer):
                                     for i in care_gt_inds])
 
         # Overlap values for the previous anchor indices
-        if len(dontcare_gt_inds)>0:
-          gt_dontcare_max_overlaps = overlaps[gt_dontcare_argmax_overlaps,
-                                     dontcare_gt_inds]
-        else:
-          gt_care_max_overlaps = np.empty((0,0))
-
-        if len(care_gt_inds)>0:
-          gt_care_max_overlaps = overlaps[gt_care_argmax_overlaps,
-                                 care_gt_inds]
-        else:
-          gt_care_max_overlaps = np.empty((0,0))
+        gt_dontcare_max_overlaps = overlaps[gt_dontcare_argmax_overlaps,
+                                   dontcare_gt_inds] if len(dontcare_gt_inds)>0 else np.empty((0,0))
+        gt_care_max_overlaps = overlaps[gt_care_argmax_overlaps,
+                               care_gt_inds] if len(care_gt_inds)>0 else np.empty((0,0))
 
         # gt_argmax_overlaps: Anchor indices that are max overlappers over
         # any gt_box
