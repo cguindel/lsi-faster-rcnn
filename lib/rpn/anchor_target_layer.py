@@ -15,6 +15,7 @@ import numpy.random as npr
 from generate_anchors import generate_anchors
 from utils.cython_bbox import bbox_overlaps
 from fast_rcnn.bbox_transform import bbox_transform, bbox_transform_inv
+import time
 
 DEBUG = False
 
@@ -85,8 +86,8 @@ class AnchorTargetLayer(caffe.Layer):
         im_info = bottom[2].data[0, :]
 
         if DEBUG:
-            if len(bottom)>2:
-                img = bottom[3].data
+            assert len(bottom)>3, 'Change the prototxt to provide the image'
+            img = bottom[3].data
             np.set_printoptions(threshold=np.nan)
             print '~~~ ANCHOR_TARGET_LAYER ~~~'
             print 'im_size: ({}, {})'.format(im_info[0], im_info[1])
@@ -142,6 +143,12 @@ class AnchorTargetLayer(caffe.Layer):
         dontcare_gt_inds = np.where(gt_boxes[:,4]<0)[0]
         care_gt_inds = np.where(gt_boxes[:,4]>-1)[0]
 
+        if DEBUG:
+          print 'dontcare_gt_inds'
+          print dontcare_gt_inds
+          print 'care_gt_inds'
+          print care_gt_inds
+
         # overlaps between the anchors and the gt boxes
         # overlaps (ex, gt)
         overlaps = bbox_overlaps(
@@ -179,10 +186,17 @@ class AnchorTargetLayer(caffe.Layer):
                                     for i in care_gt_inds])
 
         # Overlap values for the previous anchor indices
-        gt_dontcare_max_overlaps = overlaps[gt_dontcare_argmax_overlaps,
-                                   dontcare_gt_inds]
-        gt_care_max_overlaps = overlaps[gt_care_argmax_overlaps,
-                               care_gt_inds]
+        if len(dontcare_gt_inds)>0:
+          gt_dontcare_max_overlaps = overlaps[gt_dontcare_argmax_overlaps,
+                                     dontcare_gt_inds]
+        else:
+          gt_care_max_overlaps = np.empty((0,0))
+
+        if len(care_gt_inds)>0:
+          gt_care_max_overlaps = overlaps[gt_care_argmax_overlaps,
+                                 care_gt_inds]
+        else:
+          gt_care_max_overlaps = np.empty((0,0))
 
         # gt_argmax_overlaps: Anchor indices that are max overlappers over
         # any gt_box
@@ -293,7 +307,13 @@ class AnchorTargetLayer(caffe.Layer):
             print 'rpn: num_positive avg', self._fg_sum / self._count
             print 'rpn: num_negative avg', self._bg_sum / self._count
 
-            _vis_whats_happening(img, anchors, bbox_targets[inds_inside], labels[inds_inside])
+            if len(dontcare_gt_inds)==0 or len(care_gt_inds)==0:
+              _ = raw_input("Press key to continue ")
+              input_block = True
+            else:
+              input_block = False
+
+            _vis_whats_happening(img, anchors, bbox_targets[inds_inside], labels[inds_inside], block=input_block)
 
         # labels
         labels = labels.reshape((1, height, width, A)).transpose(0, 3, 1, 2)
@@ -355,7 +375,7 @@ def _compute_targets(ex_rois, gt_rois):
 
     return bbox_transform(ex_rois, gt_rois[:, :4]).astype(np.float32, copy=False)
 
-def _vis_whats_happening(im_blob, bboxes, targets, labels):
+def _vis_whats_happening(im_blob, bboxes, targets, labels, block=False):
     """Visualize a mini-batch for debugging."""
     import matplotlib.pyplot as plt
     import random
@@ -364,8 +384,10 @@ def _vis_whats_happening(im_blob, bboxes, targets, labels):
     im = im[:, :, (2, 1, 0)]
     im = im.astype(np.uint8)
     plt.figure("RPN anchors no-targets")
+    plt.clf()
     plt.imshow(im)
     plt.figure("RPN anchors targets")
+    plt.clf()
     plt.imshow(im)
     rois = bbox_transform_inv(bboxes, targets)
     for i in xrange(bboxes.shape[0]):
@@ -401,4 +423,4 @@ def _vis_whats_happening(im_blob, bboxes, targets, labels):
                           roi[3] - roi[1], fill=False,
                           edgecolor=color, linewidth=1)
               )
-    plt.show(block=False)
+    plt.show(block=block)
