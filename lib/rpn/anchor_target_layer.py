@@ -18,6 +18,7 @@ from fast_rcnn.bbox_transform import bbox_transform, bbox_transform_inv
 import time
 
 DEBUG = False
+BLOCK_VIS = False
 
 class AnchorTargetLayer(caffe.Layer):
     """
@@ -300,13 +301,7 @@ class AnchorTargetLayer(caffe.Layer):
             print 'rpn: num_positive avg', self._fg_sum / self._count
             print 'rpn: num_negative avg', self._bg_sum / self._count
 
-            if len(dontcare_gt_inds)==0 or len(care_gt_inds)==0:
-              _ = raw_input("Press key to continue ")
-              input_block = True
-            else:
-              input_block = False
-
-            _vis_whats_happening(img, anchors, bbox_targets[inds_inside], labels[inds_inside], block=input_block)
+            _vis_whats_happening(img, anchors, bbox_targets[inds_inside], labels[inds_inside], block=BLOCK_VIS)
 
         # labels
         labels = labels.reshape((1, height, width, A)).transpose(0, 3, 1, 2)

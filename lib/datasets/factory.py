@@ -34,7 +34,7 @@ for year in ['2015']:
         __sets[name] = (lambda split=split, year=year: coco(split, year))
 
 # Set up kitti_<split>
-for split in ['training', 'testing', 'subtraining', 'subtesting', 'trainsplit', 'valsplit']:
+for split in ['training', 'testing', 'subtraining', 'subtesting', 'trainsplit', 'valsplit', 'train_lsi', 'val_lsi']:
     name = 'kitti_{}'.format(split)
     __sets[name] = (lambda split=split: kitti(split))
 

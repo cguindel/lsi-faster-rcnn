@@ -12,7 +12,7 @@ class CropAnglesLayer(caffe.Layer):
         self._viewp_bins = cfg.VIEWP_BINS
         assert (self._viewp_bins == 8)
         if len(bottom) != 2:
-            raise Exception("Need two inputs to compute distance.")
+            raise Exception("Need two inputs")
 
     def reshape(self, bottom, top):
         # check input dimensions match
@@ -62,7 +62,6 @@ class CropAnglesLayer(caffe.Layer):
 
 
     def backward(self, top, propagate_down, bottom):
-        print 'hola'
         if propagate_down[1]:
           raise Exception("Como vas a propagar los pesos, hijoputa")
 

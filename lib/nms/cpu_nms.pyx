@@ -64,6 +64,6 @@ def cpu_nms(np.ndarray[np.float32_t, ndim=2] dets, np.float thresh):
             inter = w * h
             ovr = inter / (iarea + areas[j] - inter)
             if ovr >= thresh:
-                suppressed[j] = i
+                suppressed[j] = i+1
 
     return keep, suppressed

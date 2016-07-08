@@ -182,7 +182,10 @@ def im_detect(net, im, boxes=None):
         scores = scores[inv_index, :]
         pred_boxes = pred_boxes[inv_index, :]
 
-    viewpoints = blobs_out['viewpoint_pred']
+    if 'viewpoint_pred' in blobs_out.keys():
+      viewpoints = blobs_out['viewpoint_pred']
+    else:
+      viewpoints = np.zeros((300, scores.shape[1]*8), dtype=np.float32)
 
     return scores, pred_boxes, viewpoints
 
@@ -208,6 +211,15 @@ def vis_detections(im, class_name, dets, gt=[], thresh=0.3):
                               edgecolor=tuple(CLASS_COLOR[int(dets[i, -1])][chn]/255.0 for chn in xrange(3)), linewidth=3)
                 )
             #plt.title('{}  {:.3f}'.format(class_name, score))
+
+    for ix, box in enumerate(gt['boxes']):
+      if gt['gt_classes'][ix] > 0:
+        plt.gca().add_patch(
+                plt.Rectangle((box[0], box[1]),
+                              box[2] - box[0],
+                              box[3] - box[1], fill=False,
+                              edgecolor=(1,1,1), linewidth=2)
+                )
     plt.show()
 
 def apply_nms(all_boxes, thresh):
@@ -309,8 +321,8 @@ def test_net(net, imdb, max_per_image=100, thresh=0.05, vis=False):
             all_boxes[j][i] = cls_dets
 
         if vis:
-          vis_detections(im, imdb.classes, detts)
           gt_roidb = kitti._load_kitti_annotation(img_file)
+          vis_detections(im, imdb.classes, detts, gt_roidb)
 
         # Limit to max_per_image detections *over all classes*
         if max_per_image > 0:
