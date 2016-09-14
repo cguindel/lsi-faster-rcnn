@@ -177,15 +177,16 @@ def im_detect(net, im, boxes=None):
         # Simply repeat the boxes, once for each class
         pred_boxes = np.tile(boxes, (1, scores.shape[1]))
 
+    if 'viewpoints_pd' in blobs_out.keys():
+      viewpoints = blobs_out['viewpoints_pd']
+    else:
+      viewpoints = np.zeros((300, scores.shape[1]*8), dtype=np.float32)
+
     if cfg.DEDUP_BOXES > 0 and not cfg.TEST.HAS_RPN:
         # Map scores and predictions back to the original set of boxes
         scores = scores[inv_index, :]
         pred_boxes = pred_boxes[inv_index, :]
-
-    if 'viewpoint_pred' in blobs_out.keys():
-      viewpoints = blobs_out['viewpoint_pred']
-    else:
-      viewpoints = np.zeros((300, scores.shape[1]*8), dtype=np.float32)
+        viewpoints = viewpoints[inv_index, :]
 
     return scores, pred_boxes, viewpoints
 
@@ -219,6 +220,13 @@ def vis_detections(im, class_name, dets, gt=[], thresh=0.3):
                               box[2] - box[0],
                               box[3] - box[1], fill=False,
                               edgecolor=(1,1,1), linewidth=2)
+                )
+      else:
+        plt.gca().add_patch(
+                plt.Rectangle((box[0], box[1]),
+                              box[2] - box[0],
+                              box[3] - box[1], fill=False,
+                              edgecolor=(0,0,0), linewidth=2)
                 )
     plt.show()
 
@@ -282,12 +290,21 @@ def test_net(net, imdb, max_per_image=100, thresh=0.05, vis=False):
             # detection on the *non*-ground-truth rois. We select those the rois
             # that have the gt_classes field set to 0, which means there's no
             # ground truth.
-            box_proposals = roidb[i]['boxes'][roidb[i]['gt_classes'] == 0]
+            if cfg.TEST.GTPROPOSALS:
+              box_proposals = roidb[i]['boxes'][roidb[i]['gt_classes'] > -1]
+            else:
+              box_proposals = roidb[i]['boxes'][roidb[i]['gt_classes'] == 0]
 
-        im = cv2.imread(imdb.image_path_at(i))
-        _t['im_detect'].tic()
-        scores, boxes, viewpoints = im_detect(net, im, box_proposals)
-        _t['im_detect'].toc()
+        if box_proposals is not None and box_proposals.shape[0] <= 0:
+          # if there are no proposals....
+          scores = np.empty((0, imdb.num_classes), dtype=np.float32)
+          boxes = np.empty((0, imdb.num_classes*4), dtype=np.float32)
+          viewpoints = np.empty((0, imdb.num_classes*8), dtype=np.float32)
+        else:
+          im = cv2.imread(imdb.image_path_at(i))
+          _t['im_detect'].tic()
+          scores, boxes, viewpoints = im_detect(net, im, box_proposals)
+          _t['im_detect'].toc()
 
         _t['misc'].tic()
         # skip j = 0, because it's the background class

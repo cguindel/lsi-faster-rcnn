@@ -167,6 +167,8 @@ __C.TEST.RPN_POST_NMS_TOP_N = 300
 __C.TEST.RPN_MIN_SIZE = 16
 # Do non-maximal supression in testing
 __C.TEST.DO_NMS = True
+# Try gt proposals
+__C.TEST.GTPROPOSALS = False
 
 
 #

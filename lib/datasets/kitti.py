@@ -272,7 +272,7 @@ class kitti(imdb):
                         continue
 
                     for k in xrange(dets.shape[0]):
-                        angle = dets[k, -9:-1]
+                        angle = dets[k, -8:]
                         assert np.amax(angle) < 8
                         angle_bin = np.argmax(angle)
                         # KITTI expects 0-based indices
@@ -281,7 +281,8 @@ class kitti(imdb):
                                        cfg.VIEWP_CTR[angle_bin],
                                        dets[k, 0], dets[k, 1],
                                        dets[k, 2], dets[k, 3],
-                                       dets[k, -9]))
+                                       # log to avoid score 0.0
+                                       math.log(dets[k, -9])))
 
         print 'Results were saved in', comp_id
 
