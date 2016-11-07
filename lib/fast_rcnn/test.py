@@ -106,7 +106,7 @@ def _get_blobs(im, rois):
         blobs['rois'] = _get_rois_blob(rois, im_scale_factors)
     return blobs, im_scale_factors
 
-def im_detect(net, im, boxes=None):
+def im_detect(net, im, boxes=None, extra_boxes=np.zeros((0,4), dtype=np.float32)):
     """Detect object classes in an image given object proposals.
 
     Arguments:
@@ -121,11 +121,16 @@ def im_detect(net, im, boxes=None):
     """
     blobs, im_scales = _get_blobs(im, boxes)
 
+    if extra_boxes.shape[0]>0:
+        assert (cfg.TEST.EXTERNAL_ROIS == True), "If you want to use external proposals, \
+                                    you have to set the proper configuration parameter"
+
     # When mapping from image ROIs to feature map ROIs, there's some aliasing
     # (some distinct image ROIs get mapped to the same feature ROI).
     # Here, we identify duplicate feature ROIs, so we only compute features
     # on the unique subset.
     if cfg.DEDUP_BOXES > 0 and not cfg.TEST.HAS_RPN:
+        assert (cfg.TEST.EXTERNAL_ROIS == False)
         v = np.array([1, 1e3, 1e6, 1e9, 1e12])
         hashes = np.round(blobs['rois'] * cfg.DEDUP_BOXES).dot(v)
         _, index, inv_index = np.unique(hashes, return_index=True,
@@ -143,13 +148,19 @@ def im_detect(net, im, boxes=None):
     net.blobs['data'].reshape(*(blobs['data'].shape))
     if cfg.TEST.HAS_RPN:
         net.blobs['im_info'].reshape(*(blobs['im_info'].shape))
+        if cfg.TEST.EXTERNAL_ROIS:
+            net.blobs['extra_rois'].reshape(*(extra_boxes.shape))
+            sc_extra_boxes, _ = _project_im_rois(extra_boxes, im_scales)
     else:
+        assert(cfg.TEST.EXTERNAL_ROIS == False)
         net.blobs['rois'].reshape(*(blobs['rois'].shape))
 
     # do forward
     forward_kwargs = {'data': blobs['data'].astype(np.float32, copy=False)}
     if cfg.TEST.HAS_RPN:
         forward_kwargs['im_info'] = blobs['im_info'].astype(np.float32, copy=False)
+        if cfg.TEST.EXTERNAL_ROIS:
+            forward_kwargs['extra_rois'] = sc_extra_boxes
     else:
         forward_kwargs['rois'] = blobs['rois'].astype(np.float32, copy=False)
     blobs_out = net.forward(**forward_kwargs)

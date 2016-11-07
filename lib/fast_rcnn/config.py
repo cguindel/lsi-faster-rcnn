@@ -176,6 +176,8 @@ __C.TEST.DO_NMS = True
 __C.TEST.GTPROPOSALS = False
 # Use 4 channels to test
 __C.TEST.FOURCHANNELS = False
+# External proposals
+__C.TEST.EXTERNAL_ROIS = False
 
 
 #
