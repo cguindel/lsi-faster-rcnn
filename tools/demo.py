@@ -5,6 +5,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
+# Modified by C. Guindel at UC3M
 # --------------------------------------------------------
 
 """
@@ -114,6 +115,7 @@ def parse_args():
 
 if __name__ == '__main__':
     cfg.TEST.HAS_RPN = True  # Use RPN for proposals
+    cfg.VIEWPOINTS = False
 
     args = parse_args()
 

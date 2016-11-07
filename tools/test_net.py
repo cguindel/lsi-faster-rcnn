@@ -5,7 +5,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
-# Modified at UC3M by cguindel
+# Modified by C. Guindel at UC3M
 # --------------------------------------------------------
 
 """Test a Fast R-CNN network on an image database."""

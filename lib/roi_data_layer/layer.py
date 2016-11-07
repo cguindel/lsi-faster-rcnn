@@ -3,7 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
-# Modified at UC3M by cguindel
+# Modified by C. Guindel at UC3M
 # --------------------------------------------------------
 
 """The data layer used during training to train a Fast R-CNN network.
@@ -93,8 +93,12 @@ class RoIDataLayer(caffe.Layer):
 
         # data blob: holds a batch of N images, each with 3 channels
         idx = 0
-        top[idx].reshape(cfg.TRAIN.IMS_PER_BATCH, 3,
-            max(cfg.TRAIN.SCALES), cfg.TRAIN.MAX_SIZE)
+        if cfg.TRAIN.FOURCHANNELS:
+            top[idx].reshape(cfg.TRAIN.IMS_PER_BATCH, 4,
+                max(cfg.TRAIN.SCALES), cfg.TRAIN.MAX_SIZE)
+        else:
+            top[idx].reshape(cfg.TRAIN.IMS_PER_BATCH, 3,
+                max(cfg.TRAIN.SCALES), cfg.TRAIN.MAX_SIZE)
         self._name_to_top_map['data'] = idx
         idx += 1
 
@@ -104,7 +108,10 @@ class RoIDataLayer(caffe.Layer):
             idx += 1
 
             # gt boxes: (x1 y1 x2 y2 cls orient)
-            top[idx].reshape(1, 6)
+            if cfg.VIEWPOINTS:
+                top[idx].reshape(1, 6)
+            else:
+                top[idx].reshape(1, 5)
             self._name_to_top_map['gt_boxes'] = idx
             idx += 1
         else: # not using RPN

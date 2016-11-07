@@ -3,7 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
-# Modified at UC3M by cguindel
+# Modified by C. Guindel at UC3M
 # --------------------------------------------------------
 
 import os
@@ -64,7 +64,7 @@ class imdb(object):
         #   gt_overlaps
         #   gt_classes
         #   flipped
-        #   viewpoint (orientation)
+        #   [viewpoint (orientation)]
         if self._roidb is not None:
             return self._roidb
         self._roidb = self.roidb_handler()
@@ -94,14 +94,14 @@ class imdb(object):
         Each of those list elements is either an empty list []
         or a numpy array of detection.
 
-        all_boxes[class][image] = [] or np.array of shape #dets x 6
+        all_boxes[class][image] = [] or np.array of shape #dets x (5 [or 6])
         """
         raise NotImplementedError
 
     def _rotate_element(self, a):
         """
         Flip horizontally an object in the image
-        when viewpoint is given as a bin
+        when viewpoint is given as a bin.
         Currently deprecated
         """
         switcher = {
@@ -142,23 +142,28 @@ class imdb(object):
             boxes[:, 2] = widths[i] - oldx1 - 1
             assert (boxes[:, 2] >= boxes[:, 0]).all()
             # Viewpoint
-            orient_raw = self.roidb[i]['gt_viewpoints'].copy()
-            #Viewpoint as a bin (deprecated)
-            #orient = [self._rotate_element(orient_raw[elem])
-            #            if rads!=-10 else -10
-            #            for elem, rads in enumerate(orient_raw) ]
-            #Viewpoint as an angle (float)
-            orient = [self._rotate_angle(orient_raw[elem])
-                        if rads!=-10 else -10
-                        for elem, rads in enumerate(orient_raw) ]
+            if cfg.VIEWPOINTS:
+                orient_raw = self.roidb[i]['gt_viewpoints'].copy()
+                #Viewpoint as an angle (float)
+                orient = [self._rotate_angle(orient_raw[elem])
+                            if rads!=-10 else -10
+                            for elem, rads in enumerate(orient_raw) ]
 
-            entry = {'boxes' : boxes,
-                     'gt_overlaps' : self.roidb[i]['gt_overlaps'],
-                     'gt_classes' : self.roidb[i]['gt_classes'],
-                     'flipped' : True,
-                     'gt_viewpoints' : np.array(orient),
-                     'seg_areas' : self.roidb[i]['seg_areas']
-                     }
+                entry = {'boxes' : boxes,
+                         'gt_overlaps' : self.roidb[i]['gt_overlaps'],
+                         'gt_classes' : self.roidb[i]['gt_classes'],
+                         'flipped' : True,
+                         'gt_viewpoints' : np.array(orient),
+                         'seg_areas' : self.roidb[i]['seg_areas']
+                         }
+            else:
+                entry = {'boxes' : boxes,
+                         'gt_overlaps' : self.roidb[i]['gt_overlaps'],
+                         'gt_classes' : self.roidb[i]['gt_classes'],
+                         'flipped' : True,
+                         'seg_areas' : self.roidb[i]['seg_areas']
+                         }
+
             self.roidb.append(entry)
         self._image_index = self._image_index * 2
 

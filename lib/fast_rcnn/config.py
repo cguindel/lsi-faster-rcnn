@@ -3,7 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
-# Modified at UC3M by cguindel
+# Modified by C. Guindel at UC3M
 # --------------------------------------------------------
 
 """Fast R-CNN config system.
@@ -123,9 +123,13 @@ __C.TRAIN.RPN_BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
 # and give negatives a weight of (1 - p)
 # Set to -1.0 to use uniform example weighting
 __C.TRAIN.RPN_POSITIVE_WEIGHT = -1.0
+# -- LSI-Faster-RCNN settings --
 # RoIs are not considered when overlap with DontCare labels is over these thresholds:
 __C.TRAIN.RPN_DONTCARE_OVERLAP = 0.1
 __C.TRAIN.DONTCARE_OVERLAP = 0.1
+# Use 4 channels to train
+__C.TRAIN.FOURCHANNELS = False
+
 
 #
 # Testing options
@@ -165,10 +169,13 @@ __C.TEST.RPN_PRE_NMS_TOP_N = 6000
 __C.TEST.RPN_POST_NMS_TOP_N = 300
 # Proposal height and width both need to be greater than RPN_MIN_SIZE (at orig image scale)
 __C.TEST.RPN_MIN_SIZE = 16
+# -- LSI-Faster-RCNN settings --
 # Do non-maximal supression in testing
 __C.TEST.DO_NMS = True
 # Try gt proposals
 __C.TEST.GTPROPOSALS = False
+# Use 4 channels to test
+__C.TEST.FOURCHANNELS = False
 
 
 #
@@ -214,6 +221,10 @@ __C.USE_GPU_NMS = True
 # Default GPU device id
 __C.GPU_ID = 0
 
+# -- LSI-Faster-RCNN settings --
+# Use viewpoint angles
+__C.VIEWPOINTS = False
+
 # Viewpoint bins
 __C.VIEWP_BINS = 8
 __C.VIEWP_CTR = (0.39, 1.18, 1.96, 2.75,
@@ -230,6 +241,10 @@ __C.CLASSES = ['__background__', # always index 0
 __C.MAX_OCCLUDED = 3
 __C.MAX_TRUNCATED = 1.0
 __C.MIN_HEIGHT = 0
+__C.MIN_X1 = 0
+
+# Use modified CPU NMS
+__C.USE_CUSTOM_NMS = False
 
 def get_output_dir(imdb, net=None):
     """Return the directory where experimental artifacts are placed.

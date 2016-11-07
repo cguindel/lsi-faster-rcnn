@@ -1,4 +1,4 @@
-train_net: "models/kitti/ZF/faster_rcnn_end2end/train.prototxt"
+train_net: "models/kitti/ZF/faster_rcnn_end2end_4cls/train.prototxt"
 
 #base_lr: 0.001
 #lr_policy: "step"

@@ -10,14 +10,18 @@
 import numpy as np
 import cv2
 
-def im_list_to_blob(ims):
+def im_list_to_blob(ims, four_channels=False):
     """Convert a list of images into a network input.
 
     Assumes images are already prepared (means subtracted, BGR order, ...).
     """
     max_shape = np.array([im.shape for im in ims]).max(axis=0)
     num_images = len(ims)
-    blob = np.zeros((num_images, max_shape[0], max_shape[1], 3),
+    if four_channels:
+        blob = np.zeros((num_images, max_shape[0], max_shape[1], 4),
+                    dtype=np.float32)
+    else:
+        blob = np.zeros((num_images, max_shape[0], max_shape[1], 3),
                     dtype=np.float32)
     for i in xrange(num_images):
         im = ims[i]

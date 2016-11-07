@@ -1,7 +1,9 @@
-# KITTI Object Dataset is expected to be at $FRCN_ROOT/data/kitti
-# image_set
-# training:kitti/object/testing/image_2/[from 000 to 007480.png]
-# testing: 007517.png
+# --------------------------------------------------------
+# LSI Faster R-CNN
+# Written by C. Guindel at UC3M
+# Note:
+# KITTI Object Dataset is expected to be at $FRCN_ROOT/data/kitti/images
+# --------------------------------------------------------
 
 from datasets.imdb import imdb
 import os
@@ -15,27 +17,31 @@ import math
 import matplotlib.pyplot as plt
 
 DEBUG = False
-STATS = False
+STATS = False   # Retrieve stats from the KITTI dataset
 
 class kitti(imdb):
     def __init__(self, image_set, devkit_path=None):
         imdb.__init__(self, 'kitti_' + image_set)
-        self._image_set = image_set
-        self._devkit_path = self._get_default_path() if devkit_path is None \
+        self._image_set = image_set # Custom image split
+
+        # Paths
+        self._devkit_path = os.path.join(cfg.DATA_DIR, 'kitti') if devkit_path is None \
                             else devkit_path
-        self._data_path = os.path.join(self._devkit_path, 'object')
+        self._data_path = os.path.join(self._devkit_path, 'images')
+        self._kitti_set = 'training' # training / testing
+
+        self._image_ext = '.png'
+
         self._classes = tuple(cfg.CLASSES)
         self._class_to_ind = dict(zip(self.classes, xrange(self.num_classes)))
-        self._image_ext = '.png'
+
         self._image_index = self._load_image_set_index()
-        # Default to roidb handler
         self._roidb_handler = self.dollar_roidb
         self._salt = str(uuid.uuid4())
         self._comp_id = 'comp4'
 
-        # 8 orientation bins:
-        self._orientations = (0.39, 1.18, 1.96, 2.75,
-                                -2.75, -1.96, -1.18, -0.39, 1.57)
+        # Viewpoint bins:
+        self._orientations = cfg.VIEWP_CTR
 
         if STATS:
             self.aspect_ratios = []
@@ -44,7 +50,7 @@ class kitti(imdb):
             self.areas = []
 
         assert os.path.exists(self._devkit_path), \
-                'KITTI devkit path does not exist: {}'.format(self._devkit_path)
+                'KITTI path does not exist at data: {}'.format(self._devkit_path)
         assert os.path.exists(self._data_path), \
                 'Path does not exist: {}'.format(self._data_path)
 
@@ -58,7 +64,7 @@ class kitti(imdb):
         """
         Construct an image path from the image's "index" identifier.
         """
-        image_path = os.path.join(self._data_path, self._image_set, 'image_2',
+        image_path = os.path.join(self._data_path, self._kitti_set, 'image_2',
                                   index + self._image_ext)
         assert os.path.exists(image_path), \
                 'Path does not exist: {}'.format(image_path)
@@ -71,19 +77,13 @@ class kitti(imdb):
         """
         # Example path to image set file:
         # self._devkit_path + /KITTI/object/ImageSets/Main/val.txt
-        image_set_file = os.path.join(self._data_path, 'ImageSets', 'Main',
+        image_set_file = os.path.join(self._devkit_path, 'lists',
                                       self._image_set + '.txt')
         assert os.path.exists(image_set_file), \
                 'Path does not exist: {}'.format(image_set_file)
         with open(image_set_file) as f:
             image_index = [x.strip().zfill(6) for x in f.readlines()]
         return image_index
-
-    def _get_default_path(self):
-        """
-        Return the default path where PASCAL VOC is expected to be installed.
-        """
-        return os.path.join(cfg.DATA_DIR, 'kitti')
 
     def gt_roidb(self):
         """
@@ -102,7 +102,13 @@ class kitti(imdb):
                     for index in self.image_index]
         if STATS:
           plt.figure("Ratios")
-          plt.hist(self.aspect_ratios, bins=[0, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95, 1.05, 1.15, 1.25, 1.35, 1.45, 1.55, 1.65, 1.75, 1.85, 1.95, 2.05, 2.15, 2.25, 2.35, 2.45, 2.55, 2.65, 2.75, 2.85, 2.95, 3.05, 3.15, 3.25, 3.35, 3.45, 3.55, 3.65, 3.75, 3.85, 3.95, 4.05], normed=True)
+          plt.hist(self.aspect_ratios, bins=[0, 0.15, 0.25, 0.35, 0.45, 0.55,
+                                            0.65, 0.75, 0.85, 0.95, 1.05, 1.15,
+                                            1.25, 1.35, 1.45, 1.55, 1.65, 1.75,
+                                            1.85, 1.95, 2.05, 2.15, 2.25, 2.35,
+                                            2.45, 2.55, 2.65, 2.75, 2.85, 2.95,
+                                            3.05, 3.15, 3.25, 3.35, 3.45, 3.55,
+                                            3.65, 3.75, 3.85, 3.95, 4.05], normed=True)
           plt.show()
           plt.figure("Widths")
           plt.hist(self.widths)
@@ -111,7 +117,11 @@ class kitti(imdb):
           plt.hist(self.heights)
           plt.show()
           plt.figure("Areas")
-          plt.hist(self.areas, bins=[50, 150, 250, 350, 450, 550, 650, 750, 850, 950, 1050, 1150, 1250, 1350, 1450, 1550, 1650, 1750, 1850, 1950, 2050, 2150, 2250, 2350, 2450, 2550, 2650, 2750, 2850, 2950, 3050, 3150, 3250, 3350, 3450, 3550])
+          plt.hist(self.areas, bins=[50, 150, 250, 350, 450, 550, 650, 750, 850,
+                                    950, 1050, 1150, 1250, 1350, 1450, 1550, 1650,
+                                    1750, 1850, 1950, 2050, 2150, 2250, 2350, 2450,
+                                    2550, 2650, 2750, 2850, 2950, 3050, 3150, 3250,
+                                    3350, 3450, 3550])
           plt.show()
 
         with open(cache_file, 'wb') as fid:
@@ -125,7 +135,7 @@ class kitti(imdb):
         Load image and bounding boxes info from XML file in the PASCAL VOC
         format.
         """
-        filename = os.path.join(self._data_path, self._image_set, 'label_2',
+        filename = os.path.join(self._data_path, self._kitti_set, 'label_2',
                                 index + '.txt')
         print 'Loading: {}'.format(filename)
 
@@ -136,7 +146,7 @@ class kitti(imdb):
                         'location_1', 'location_2', 'location_3',
                         'rotation_y', 'score'], dtype=None)
 
-        # Just in case there are no objects
+        # Just in case no objects are present
         if (pre_objs.ndim < 1):
             pre_objs = np.array(pre_objs, ndmin=1)
 
@@ -146,7 +156,6 @@ class kitti(imdb):
         gt_classes = np.zeros((num_objs), dtype=np.int32)
         overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
         gt_orientation = np.zeros((num_objs), dtype=np.float32)
-        # "Seg" area for kitti is just the box area ??
         seg_areas = np.zeros((num_objs), dtype=np.float32)
 
         # Load object bounding boxes into a data frame.
@@ -155,10 +164,12 @@ class kitti(imdb):
             y1 = obj['bbox_ymin']
             x2 = obj['bbox_xmax']
             y2 = obj['bbox_ymax']
+            # Easy / medium / hard restraints
             if obj['type'].strip() not in self._classes \
             or (obj['truncated']>cfg.MAX_TRUNCATED) \
             or (obj['occluded']>cfg.MAX_OCCLUDED) \
-            or (y2-y1<cfg.MIN_HEIGHT):
+            or (y2-y1<cfg.MIN_HEIGHT) \
+            or (x1<cfg.MIN_X1):
                 gt_classes[ix] = -1
             else:
                 cls = self._class_to_ind[str(obj['type'].strip())]
@@ -185,19 +196,28 @@ class kitti(imdb):
             print index
             print {'boxes' : boxes,
                     'gt_classes': gt_classes,
+                    'gt_overlaps' : overlaps,
                     'gt_viewpoints' : gt_orientation,
                     'flipped' : False,
                     'seg_areas' : seg_areas
                     }
             print 'overlaps', overlaps.todense()
 
-        return {'boxes' : boxes,
-                'gt_classes': gt_classes,
-                'gt_overlaps' : overlaps,
-                'gt_viewpoints' : gt_orientation,
-                'flipped' : False,
-                'seg_areas' : seg_areas
-                }
+        if cfg.VIEWPOINTS:
+            return {'boxes' : boxes,
+                    'gt_classes': gt_classes,
+                    'gt_overlaps' : overlaps,
+                    'gt_viewpoints' : gt_orientation,
+                    'flipped' : False,
+                    'seg_areas' : seg_areas
+                    }
+        else:
+            return {'boxes' : boxes,
+                    'gt_classes': gt_classes,
+                    'gt_overlaps' : overlaps,
+                    'flipped' : False,
+                    'seg_areas' : seg_areas
+                    }
 
     def dollar_roidb(self):
         """
@@ -248,7 +268,7 @@ class kitti(imdb):
 
         comp_id = '{}'.format(os.getpid())
 
-        path = os.path.join(self._devkit_path, 'results', comp_id, '')
+        path = os.path.join(output_dir, comp_id, '')
 
         for im_ind, index in enumerate(self.image_index):
             print 'Writing {} KITTI results file'.format(index)
@@ -272,17 +292,25 @@ class kitti(imdb):
                         continue
 
                     for k in xrange(dets.shape[0]):
-                        angle = dets[k, -8:]
-                        assert np.amax(angle) < 8
-                        angle_bin = np.argmax(angle)
+                        if cfg.VIEWPOINTS:
+                            angle = dets[k, -8:]
+                            assert np.amax(angle) < 8
+                            angle_bin = np.argmax(angle)
+                            estimated_angle = cfg.VIEWP_CTR[angle_bin]
+                            # log(score) to avoid score 0.0
+                            estimated_score = math.log(dets[k, -9])
+                        else:
+                            estimated_angle = -10
+                            estimated_score = math.log(dets[k, -1])
+
                         # KITTI expects 0-based indices
                         f.write('{:s} -1 -1 {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} -1 -1 -1 -1000 -1000 -1000 -10 {:.6f}\n'.
                                 format(write_cls,
-                                       cfg.VIEWP_CTR[angle_bin],
+                                       estimated_angle,
                                        dets[k, 0], dets[k, 1],
                                        dets[k, 2], dets[k, 3],
-                                       # log to avoid score 0.0
-                                       math.log(dets[k, -9])))
+                                       estimated_score))
+
 
         print 'Results were saved in', comp_id
 

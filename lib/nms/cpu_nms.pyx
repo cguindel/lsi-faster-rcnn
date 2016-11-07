@@ -3,7 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
-# Modified at UC3M by cguindel
+# Modified by cguindel at UC3M
 # --------------------------------------------------------
 
 import numpy as np

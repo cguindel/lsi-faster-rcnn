@@ -3,7 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
-# Modified at UC3M by cguindel
+# Modified by cguindel at UC3M
 # --------------------------------------------------------
 
 """Compute minibatch blobs for training a Fast R-CNN network."""
@@ -42,11 +42,15 @@ def get_minibatch(roidb, num_classes):
         assert len(roidb) == 1, "Single batch only"
         # gt boxes: (x1, y1, x2, y2, cls)
         gt_inds = np.where(roidb[0]['gt_classes'] != 0)[0]
-        gt_boxes = np.empty((len(gt_inds), 6), dtype=np.float32)
+        if cfg.VIEWPOINTS:
+            gt_boxes = np.empty((len(gt_inds), 6), dtype=np.float32)
+            gt_boxes[:, 5] = roidb[0]['gt_viewpoints'][gt_inds]
+        else:
+            gt_boxes = np.empty((len(gt_inds), 5), dtype=np.float32)
         gt_boxes[:, 0:4] = roidb[0]['boxes'][gt_inds, :] * im_scales[0]
         gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
-        gt_boxes[:, 5] = roidb[0]['gt_viewpoints'][gt_inds]
-        # Check --by the flies--
+
+        # Redundant check
         for x in xrange(len(gt_inds)):
             if gt_boxes[x, 4]==-1:
                 assert gt_boxes[x, 5]==-10
@@ -149,7 +153,11 @@ def _get_image_blob(roidb, scale_inds):
     processed_ims = []
     im_scales = []
     for i in xrange(num_images):
-        im = cv2.imread(roidb[i]['image'])
+        if cfg.TRAIN.FOURCHANNELS:
+            im = cv2.imread(roidb[i]['image'], cv2.IMREAD_UNCHANGED)
+        else:
+            im = cv2.imread(roidb[i]['image'])
+
         if roidb[i]['flipped']:
             im = im[:, ::-1, :]
         target_size = cfg.TRAIN.SCALES[scale_inds[i]]
@@ -159,7 +167,7 @@ def _get_image_blob(roidb, scale_inds):
         processed_ims.append(im)
 
     # Create a blob to hold the input images
-    blob = im_list_to_blob(processed_ims)
+    blob = im_list_to_blob(processed_ims, four_channels=cfg.TRAIN.FOURCHANNELS)
 
     return blob, im_scales
 

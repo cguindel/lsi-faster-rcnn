@@ -197,7 +197,7 @@ layer {
   param { lr_mult: 2.0 }
   convolution_param {
     #NUM_SCALES * NUM_RATIOS * 2 (original 18)
-    num_output: 18   # 2(bg/fg) * 9(anchors)
+    num_output: 18   # original: 2(bg/fg) * 9(anchors)
     kernel_size: 1 pad: 0 stride: 1
     weight_filler { type: "gaussian" std: 0.01 }
     bias_filler { type: "constant" value: 0 }
@@ -212,7 +212,7 @@ layer {
   param { lr_mult: 2.0 }
   convolution_param {
     #NUM_SCALES * NUM_RATIOS * 4 (original 36)
-    num_output: 36   # 4 * 9(anchors)
+    num_output: 36   # original: 4 * 9(anchors)
     kernel_size: 1 pad: 0 stride: 1
     weight_filler { type: "gaussian" std: 0.01 }
     bias_filler { type: "constant" value: 0 }
@@ -315,8 +315,7 @@ layer {
   python_param {
     module: 'rpn.proposal_target_layer'
     layer: 'ProposalTargetLayer'
-    #param_str: "'num_classes': 8"
-    # NUM_CLASSES
+    # NUM_CLASSES (original: 8)
     param_str: "'num_classes': 4"
   }
 }
@@ -397,8 +396,8 @@ layer {
   param { lr_mult: 1.0 }
   param { lr_mult: 2.0 }
   inner_product_param {
-    #num_output: 8
-    num_output: 6
+    #NUM_CLASSES (original: 8)
+    num_output: 4
     weight_filler {
       type: "gaussian"
       std: 0.01
@@ -417,8 +416,7 @@ layer {
   param { lr_mult: 1.0 }
   param { lr_mult: 2.0 }
   inner_product_param {
-    #num_output: 32
-    #NUM_CLASSES * 4
+    #NUM_CLASSES * 4 (original: 32)
     num_output: 16
     weight_filler {
       type: "gaussian"
@@ -438,8 +436,7 @@ layer {
   param { lr_mult: 1.0 }
   param { lr_mult: 2.0 }
   inner_product_param {
-    #num_output: 64
-    #NUM_CLASSES * 8
+    #NUM_CLASSES * 8 (original: 64)
     num_output: 32
     weight_filler {
       type: "gaussian"

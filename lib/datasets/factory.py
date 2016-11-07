@@ -3,7 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
-# Modified at UC3M by cguindel
+# Modified by C. Guindel at UC3M
 # --------------------------------------------------------
 
 """Factory method for easily getting imdbs by name."""
@@ -14,6 +14,7 @@ from datasets.pascal_voc import pascal_voc
 from datasets.coco import coco
 from datasets.kitti import kitti
 import numpy as np
+import os
 
 # Set up voc_<year>_<split> using selective search "fast" mode
 for year in ['2007', '2012']:
@@ -34,7 +35,9 @@ for year in ['2015']:
         __sets[name] = (lambda split=split, year=year: coco(split, year))
 
 # Set up kitti_<split>
-for split in ['training', 'testing', 'subtraining', 'subtesting', 'trainsplit', 'valsplit', 'train_lsi', 'val_lsi']:
+# Every file in data/kitti/lists is used as split
+for filename in os.listdir('data/kitti/lists'):
+    split = filename[:-4]
     name = 'kitti_{}'.format(split)
     __sets[name] = (lambda split=split: kitti(split))
 

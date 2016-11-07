@@ -3,7 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick and Sean Bell
-# Modified at UC3M by cguindel
+# Modified by C. Guindel at UC3M
 # --------------------------------------------------------
 
 import caffe
@@ -61,7 +61,7 @@ class ProposalLayer(caffe.Layer):
         assert bottom[0].data.shape[0] == 1, \
             'Only single item batches are supported'
 
-        cfg_key = str(self.phase) # either 'TRAIN' or 'TEST'
+        cfg_key = 'TRAIN' if self.phase == caffe.TRAIN else 'TEST' # either 'TRAIN' or 'TEST'
         pre_nms_topN  = cfg[cfg_key].RPN_PRE_NMS_TOP_N
         post_nms_topN = cfg[cfg_key].RPN_POST_NMS_TOP_N
         nms_thresh    = cfg[cfg_key].RPN_NMS_THRESH
@@ -72,8 +72,8 @@ class ProposalLayer(caffe.Layer):
         scores = bottom[0].data[:, self._num_anchors:, :, :]
         bbox_deltas = bottom[1].data
         im_info = bottom[2].data[0, :]
-		# This is for the extra RoIs: if not used, everything should be
-		# the same than Faster R-CNN with RPN
+        # This is for the extra RoIs: if not used, everything should be
+        # the same than Faster R-CNN with RPN
         if len(bottom) > 3:
           extra_rois = bottom[3].data
           n_extra_rois = extra_rois.shape[0]

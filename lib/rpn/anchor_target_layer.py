@@ -3,7 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick and Sean Bell
-# Modified at UC3M by cguindel
+# Modified by cguindel at UC3M
 # --------------------------------------------------------
 
 import os
@@ -15,7 +15,6 @@ import numpy.random as npr
 from generate_anchors import generate_anchors
 from utils.cython_bbox import bbox_overlaps
 from fast_rcnn.bbox_transform import bbox_transform, bbox_transform_inv
-import time
 
 DEBUG = False
 BLOCK_VIS = False
@@ -79,10 +78,11 @@ class AnchorTargetLayer(caffe.Layer):
 
         # map of shape (..., H, W)
         height, width = bottom[0].data.shape[-2:]
-        # GT boxes (x1, y1, x2, y2, label, viewpoint)
+        # GT boxes (x1, y1, x2, y2, label, [viewpoint])
         gt_boxes = bottom[1].data
         # We don't want orientation here
-        gt_boxes = gt_boxes[:,:-1]
+        if cfg.VIEWPOINTS:
+            gt_boxes = gt_boxes[:,:-1]
         # im_info
         im_info = bottom[2].data[0, :]
 

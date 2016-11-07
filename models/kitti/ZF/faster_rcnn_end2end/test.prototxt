@@ -4,8 +4,8 @@ input: "data"
 input_shape {
   dim: 1
   dim: 3
-  dim: 375
-  dim: 375
+  dim: 1660
+  dim: 500
 }
 
 input: "im_info"
@@ -230,6 +230,7 @@ layer {
   bottom: "rpn/output"
   top: "rpn_cls_score"
   convolution_param {
+    # 2 * N_ANCHORS (original: 18)
     num_output: 18   # 2(bg/fg) * 9(anchors)
     kernel_size: 1 pad: 0 stride: 1
     weight_filler { type: "gaussian" std: 0.01 }
@@ -242,6 +243,7 @@ layer {
   bottom: "rpn/output"
   top: "rpn_bbox_pred"
   convolution_param {
+    # 4 * N_ANCHORS (original: 36)
     num_output: 36   # 4 * 9(anchors)
     kernel_size: 1 pad: 0 stride: 1
     weight_filler { type: "gaussian" std: 0.01 }
@@ -269,6 +271,7 @@ layer {
   type: 'Reshape'
   bottom: 'rpn_cls_prob'
   top: 'rpn_cls_prob_reshape'
+  # 2 * N_ANCHORS (original: 18)
   reshape_param { shape { dim: 0 dim: 18 dim: -1 dim: 0 } }
 }
 layer {
@@ -356,6 +359,7 @@ layer {
   bottom: "fc7"
   top: "cls_score"
   inner_product_param {
+    # N_CLASSES
     num_output: 8
   }
 }
@@ -365,6 +369,7 @@ layer {
   bottom: "fc7"
   top: "bbox_pred"
   inner_product_param {
+    # 4 * N_CLASSES
     num_output: 32
   }
 }
@@ -374,6 +379,7 @@ layer {
   bottom: "fc7"
   top: "viewpoint_pred"
   inner_product_param {
+    # 8 * N_CLASSES
     num_output: 64
   }
 }
