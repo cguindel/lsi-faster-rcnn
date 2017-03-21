@@ -175,7 +175,8 @@ class ProposalLayer(caffe.Layer):
           blob = a_proposals
 
         #TODO: ablation experiments
-        #blob = a_extra_rois
+        # if n_extra_rois>0:
+        #     blob = a_extra_rois
 
         top[0].reshape(*(blob.shape))
         top[0].data[...] = blob

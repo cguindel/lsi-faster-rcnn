@@ -292,6 +292,20 @@ class AnchorTargetLayer(caffe.Layer):
         bbox_outside_weights = _unmap(bbox_outside_weights, total_anchors, inds_inside, fill=0)
 
         if DEBUG:
+            # TODO: do we want this?
+            np.set_printoptions(threshold=np.nan)
+            print 'labels 1'
+            print labels[labels>0].shape
+            print 'labels 0'
+            print labels[labels==0].shape
+            print 'bbox_targets'
+            print bbox_targets.shape
+            print 'bbox_inside_weights'
+            print bbox_inside_weights[bbox_inside_weights>0]
+            print 'bbox_outside_weights'
+            print bbox_outside_weights[bbox_inside_weights>0]
+
+        if DEBUG:
             print 'rpn: max max_overlap', np.max(max_overlaps)
             print 'rpn: num_positive', np.sum(labels == 1)
             print 'rpn: num_negative', np.sum(labels == 0)

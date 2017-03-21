@@ -312,7 +312,7 @@ class kitti(imdb):
                                        estimated_score))
 
 
-        print 'Results were saved in', comp_id
+        print 'Results were saved in', filename
 
     def competition_mode(self, on):
         """

@@ -19,6 +19,7 @@ from fast_rcnn.nms_wrapper import nms
 import cPickle
 from utils.blob import im_list_to_blob
 import os
+import warnings
 
 def _get_image_blob(im):
     """Converts an image into a network input.
@@ -189,7 +190,7 @@ def im_detect(net, im, boxes=None, extra_boxes=np.zeros((0,4), dtype=np.float32)
         pred_boxes = np.tile(boxes, (1, scores.shape[1]))
 
     if cfg.VIEWPOINTS:
-        viewpoints = blobs_out['viewpoints_pd']
+        viewpoints = blobs_out['viewpoint_pred']
 
     if cfg.DEDUP_BOXES > 0 and not cfg.TEST.HAS_RPN:
         # Map scores and predictions back to the original set of boxes
@@ -282,128 +283,140 @@ def test_net(net, imdb, max_per_image=100, thresh=0.05, vis=False):
     all_boxes = [[[] for _ in xrange(num_images)]
                  for _ in xrange(imdb.num_classes)]
 
+
     output_dir = get_output_dir(imdb, net)
 
-    # timers
-    _t = {'im_detect' : Timer(), 'misc' : Timer()}
+    cache_file = os.path.join(output_dir, 'detections.pkl')
+    if os.path.exists(cache_file):
+        with open(cache_file, 'rb') as fid:
+            all_boxes = cPickle.load(fid)
+            #print '{} gt roidb loaded from {}'.format(self.name, cache_file)
+            print 'Detections cache loaded'
+            warnings.warn("PLEASE MAKE SURE THAT YOU REALLY WANT TO USE THE CACHE!", UserWarning)
+            #return roidb
+    else:
 
-    if not cfg.TEST.HAS_RPN:
-        roidb = imdb.roidb
-    ndetections = 0
+        # timers
+        _t = {'im_detect' : Timer(), 'misc' : Timer()}
 
-    for i, img_file in enumerate(imdb.image_index):
+        if not cfg.TEST.HAS_RPN:
+            roidb = imdb.roidb
+        ndetections = 0
 
-        if vis:
-            detts = np.empty([0, 6])
-
-        # filter out any ground truth boxes
-        if cfg.TEST.HAS_RPN:
-            box_proposals = None
-        else:
-            # The roidb may contain ground-truth rois (for example, if the roidb
-            # comes from the training or val split). We only want to evaluate
-            # detection on the *non*-ground-truth rois. We select those the rois
-            # that have the gt_classes field set to 0, which means there's no
-            # ground truth.
-            if cfg.TEST.GTPROPOSALS:
-              box_proposals = roidb[i]['boxes'][roidb[i]['gt_classes'] > -1]
-            else:
-              box_proposals = roidb[i]['boxes'][roidb[i]['gt_classes'] == 0]
-
-        if box_proposals is not None and box_proposals.shape[0] <= 0:
-          # if there are no proposals....
-          scores = np.empty((0, imdb.num_classes), dtype=np.float32)
-          boxes = np.empty((0, imdb.num_classes*4), dtype=np.float32)
-          if cfg.VIEWPOINTS:
-              viewpoints = np.empty((0, imdb.num_classes*8), dtype=np.float32)
-        else:
-          if cfg.TEST.FOURCHANNELS:
-              im = cv2.imread(imdb.image_path_at(i), cv2.IMREAD_UNCHANGED)
-          else:
-              im = cv2.imread(imdb.image_path_at(i))
-          _t['im_detect'].tic()
-          if cfg.VIEWPOINTS:
-              scores, boxes, viewpoints = im_detect(net, im, box_proposals)
-          else:
-              scores, boxes = im_detect(net, im, box_proposals)
-          _t['im_detect'].toc()
-
-        _t['misc'].tic()
-        # skip j = 0, because it's the background class
-        for j in xrange(1, imdb.num_classes):
-            inds = np.where(scores[:, j] > thresh)[0]
-            ndetections += len(inds)
-            cls_scores = scores[inds, j]
-            cls_boxes = boxes[inds, j*4:(j+1)*4]
-            if cfg.VIEWPOINTS:
-                # Softmax is only performed over the class 8x "slot"
-                # (that is why we apply it outside Caffe)
-                cls_viewp = softmax(viewpoints[inds, j*8:(j+1)*8])
-                # Assert that the result from softmax makes sense
-                assert(all(abs(np.sum(cls_viewp, axis=1)-1)<0.1))
-                cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis], cls_viewp)) \
-                    .astype(np.float32, copy=False)
-            else:
-                cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
-                    .astype(np.float32, copy=False)
-            if cfg.TEST.DO_NMS:
-              if cfg.USE_CUSTOM_NMS:
-                  if cfg.VIEWPOINTS:
-                      nms_returns = nms(cls_dets[:,:-8], cfg.TEST.NMS, force_cpu=True)
-                  else:
-                      nms_returns = nms(cls_dets, cfg.TEST.NMS, force_cpu=True)
-                  if nms_returns:
-                      keep = nms_returns[0]
-                      suppress = nms_returns[1]
-                  else:
-                      keep = []
-              else:
-                  if cfg.VIEWPOINTS:
-                      keep = nms(cls_dets[:,:-8], cfg.TEST.NMS)
-                  else:
-                      keep = nms(cls_dets, cfg.TEST.NMS)
-              cls_dets = cls_dets[keep, :]
-            else:
-              cls_dets=cls_dets[cls_dets[:,-9].argsort()[::-1],:]
+        for i, img_file in enumerate(imdb.image_index):
 
             if vis:
-              pre_detts = np.hstack((np.array(cls_dets[:,:5]), j*np.ones((np.array(cls_dets[:,:5]).shape[0],1))))
-              detts = np.vstack((detts, pre_detts))
+                detts = np.empty([0, 6])
 
-            all_boxes[j][i] = cls_dets
-
-        if vis:
-          gt_roidb = kitti._load_kitti_annotation(img_file)
-          vis_detections(im, imdb.classes, detts, gt_roidb)
-
-        # Limit to max_per_image detections *over all classes*
-        if max_per_image > 0:
-            if cfg.VIEWPOINTS:
-                image_scores = np.hstack([all_boxes[j][i][:, -9]
-                                            for j in xrange(1, imdb.num_classes)])
+            # filter out any ground truth boxes
+            if cfg.TEST.HAS_RPN:
+                box_proposals = None
             else:
-                image_scores = np.hstack([all_boxes[j][i][:, -1]
-                                            for j in xrange(1, imdb.num_classes)])
+                # The roidb may contain ground-truth rois (for example, if the roidb
+                # comes from the training or val split). We only want to evaluate
+                # detection on the *non*-ground-truth rois. We select those the rois
+                # that have the gt_classes field set to 0, which means there's no
+                # ground truth.
+                if cfg.TEST.GTPROPOSALS:
+                  box_proposals = roidb[i]['boxes'][roidb[i]['gt_classes'] > -1]
+                else:
+                  box_proposals = roidb[i]['boxes'][roidb[i]['gt_classes'] == 0]
 
-            if len(image_scores) > max_per_image:
-                # We usually don't want to do this
-                print "WARNING! Limiting the number of detections"
-                image_thresh = np.sort(image_scores)[-max_per_image]
-                for j in xrange(1, imdb.num_classes):
-                    if cfg.VIEWPOINTS:
-                        keep = np.where(all_boxes[j][i][:, -9] >= image_thresh)[0]
-                    else:
-                        keep = np.where(all_boxes[j][i][:, -1] >= image_thresh)[0]
-                    all_boxes[j][i] = all_boxes[j][i][keep, :]
-        _t['misc'].toc()
+            if box_proposals is not None and box_proposals.shape[0] <= 0:
+              # if there are no proposals....
+              scores = np.empty((0, imdb.num_classes), dtype=np.float32)
+              boxes = np.empty((0, imdb.num_classes*4), dtype=np.float32)
+              if cfg.VIEWPOINTS:
+                  viewpoints = np.empty((0, imdb.num_classes*8), dtype=np.float32)
+            else:
+              if cfg.TEST.FOURCHANNELS:
+                  im = cv2.imread(imdb.image_path_at(i), cv2.IMREAD_UNCHANGED)
+              else:
+                  im = cv2.imread(imdb.image_path_at(i))
+              _t['im_detect'].tic()
+              if cfg.VIEWPOINTS:
+                  scores, boxes, viewpoints = im_detect(net, im, box_proposals)
+              else:
+                  scores, boxes = im_detect(net, im, box_proposals)
+              _t['im_detect'].toc()
+              print _t['im_detect'].diff
 
-        print 'im_detect: {:d}/{:d} - {:d} detections - {:.3f}s {:.3f}s' \
-              .format(i + 1, num_images, ndetections,_t['im_detect'].average_time,
-                      _t['misc'].average_time)
+            _t['misc'].tic()
+            # skip j = 0, because it's the background class
+            for j in xrange(1, imdb.num_classes):
+                inds = np.where(scores[:, j] > thresh)[0]
+                ndetections += len(inds)
+                cls_scores = scores[inds, j]
+                cls_boxes = boxes[inds, j*4:(j+1)*4]
+                if cfg.VIEWPOINTS:
+                    # Softmax is only performed over the class 8x "slot"
+                    # (that is why we apply it outside Caffe)
+                    cls_viewp = softmax(viewpoints[inds, j*8:(j+1)*8])
+                    # Assert that the result from softmax makes sense
+                    assert(all(abs(np.sum(cls_viewp, axis=1)-1)<0.1))
+                    cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis], cls_viewp)) \
+                        .astype(np.float32, copy=False)
+                else:
+                    cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
+                        .astype(np.float32, copy=False)
+                if cfg.TEST.DO_NMS:
+                  if cfg.USE_CUSTOM_NMS:
+                      if cfg.VIEWPOINTS:
+                          nms_returns = nms(cls_dets[:,:-8], cfg.TEST.NMS, force_cpu=True)
+                      else:
+                          nms_returns = nms(cls_dets, cfg.TEST.NMS, force_cpu=True)
+                      if nms_returns:
+                          keep = nms_returns[0]
+                          suppress = nms_returns[1]
+                      else:
+                          keep = []
+                  else:
+                      if cfg.VIEWPOINTS:
+                          keep = nms(cls_dets[:,:-8], cfg.TEST.NMS)
+                      else:
+                          keep = nms(cls_dets, cfg.TEST.NMS)
+                  cls_dets = cls_dets[keep, :]
+                else:
+                  cls_dets=cls_dets[cls_dets[:,-9].argsort()[::-1],:]
 
-    det_file = os.path.join(output_dir, 'detections.pkl')
-    with open(det_file, 'wb') as f:
-        cPickle.dump(all_boxes, f, cPickle.HIGHEST_PROTOCOL)
+                if vis:
+                  pre_detts = np.hstack((np.array(cls_dets[:,:5]), j*np.ones((np.array(cls_dets[:,:5]).shape[0],1))))
+                  detts = np.vstack((detts, pre_detts))
+
+                all_boxes[j][i] = cls_dets
+
+            if vis:
+              gt_roidb = kitti._load_kitti_annotation(img_file)
+              vis_detections(im, imdb.classes, detts, gt_roidb)
+
+            # Limit to max_per_image detections *over all classes*
+            if max_per_image > 0:
+                if cfg.VIEWPOINTS:
+                    image_scores = np.hstack([all_boxes[j][i][:, -9]
+                                                for j in xrange(1, imdb.num_classes)])
+                else:
+                    image_scores = np.hstack([all_boxes[j][i][:, -1]
+                                                for j in xrange(1, imdb.num_classes)])
+
+                if len(image_scores) > max_per_image:
+                    # We usually don't want to do this
+                    print "WARNING! Limiting the number of detections"
+                    image_thresh = np.sort(image_scores)[-max_per_image]
+                    for j in xrange(1, imdb.num_classes):
+                        if cfg.VIEWPOINTS:
+                            keep = np.where(all_boxes[j][i][:, -9] >= image_thresh)[0]
+                        else:
+                            keep = np.where(all_boxes[j][i][:, -1] >= image_thresh)[0]
+                        all_boxes[j][i] = all_boxes[j][i][keep, :]
+            _t['misc'].toc()
+
+            print 'im_detect: {:d}/{:d} - {:d} detections - {:.3f}s {:.3f}s' \
+                  .format(i + 1, num_images, ndetections,_t['im_detect'].average_time,
+                          _t['misc'].average_time)
+
+        det_file = os.path.join(output_dir, 'detections.pkl')
+        with open(det_file, 'wb') as f:
+            cPickle.dump(all_boxes, f, cPickle.HIGHEST_PROTOCOL)
 
     print 'Evaluating detections'
     imdb.evaluate_detections(all_boxes, output_dir)
