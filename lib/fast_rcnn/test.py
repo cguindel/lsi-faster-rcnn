@@ -190,7 +190,12 @@ def im_detect(net, im, boxes=None, extra_boxes=np.zeros((0,4), dtype=np.float32)
         pred_boxes = np.tile(boxes, (1, scores.shape[1]))
 
     if cfg.VIEWPOINTS:
-        viewpoints = blobs_out['viewpoint_pred']
+        try:
+            viewpoints = blobs_out['viewpoint_pred']
+        except KeyError, e:
+            viewpoints = blobs_out['viewpoints_pd']
+        except:
+            print 'Unknown error reading the viewpoint predictions.' % str(e)
 
     if cfg.DEDUP_BOXES > 0 and not cfg.TEST.HAS_RPN:
         # Map scores and predictions back to the original set of boxes
@@ -333,6 +338,7 @@ def test_net(net, imdb, max_per_image=100, thresh=0.05, vis=False):
                   im = cv2.imread(imdb.image_path_at(i), cv2.IMREAD_UNCHANGED)
               else:
                   im = cv2.imread(imdb.image_path_at(i))
+
               _t['im_detect'].tic()
               if cfg.VIEWPOINTS:
                   scores, boxes, viewpoints = im_detect(net, im, box_proposals)

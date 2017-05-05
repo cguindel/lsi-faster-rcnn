@@ -51,9 +51,10 @@ def get_minibatch(roidb, num_classes):
         gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
 
         # Redundant check
-        for x in xrange(len(gt_inds)):
-            if gt_boxes[x, 4]==-1:
-                assert gt_boxes[x, 5]==-10
+        if cfg.VIEWPOINTS:
+            for x in xrange(len(gt_inds)):
+                if gt_boxes[x, 4]==-1:
+                    assert gt_boxes[x, 5]==-10
         blobs['gt_boxes'] = gt_boxes
         blobs['im_info'] = np.array(
             [[im_blob.shape[2], im_blob.shape[3], im_scales[0]]],
