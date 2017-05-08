@@ -150,7 +150,22 @@ class kitti(imdb):
         if (pre_objs.ndim < 1):
             pre_objs = np.array(pre_objs, ndmin=1)
 
-        num_objs = pre_objs.size
+        if cfg.PREFILTER:
+            out_of_bounds = 0
+            for ix, obj in enumerate(pre_objs):
+                x1 = obj['bbox_xmin']
+                y1 = obj['bbox_ymin']
+                x2 = obj['bbox_xmax']
+                y2 = obj['bbox_ymax']
+                if  x1<0 or x1>cfg.PREFILTER_WIDTH or \
+                    y1<0 or y1>PREFILTER_HEIGHT or \
+                    x2<0 or x2>PREFILTER_WIDTH or \
+                    y2<0 or y2>PREFILTER_HEIGHT:
+                    out_of_bounds += 1
+
+            num_objs = pre_objs.size-out_of_bounds
+        else:
+            num_objs = pre_objs.size
 
         boxes = np.zeros((num_objs, 4), dtype=np.float32)
         gt_classes = np.zeros((num_objs), dtype=np.int32)
@@ -159,36 +174,51 @@ class kitti(imdb):
         seg_areas = np.zeros((num_objs), dtype=np.float32)
 
         # Load object bounding boxes into a data frame.
+        saved = 0
         for ix, obj in enumerate(pre_objs):
             x1 = obj['bbox_xmin']
             y1 = obj['bbox_ymin']
             x2 = obj['bbox_xmax']
             y2 = obj['bbox_ymax']
+
+            if cfg.PREFILTER:
+                if  x1<0 or x1>cfg.PREFILTER_WIDTH or \
+                    y1<0 or y1>PREFILTER_HEIGHT or \
+                    x2<0 or x2>PREFILTER_WIDTH or \
+                    y2<0 or y2>PREFILTER_HEIGHT:
+                    continue
+
+            # TODO
+            if obj['type'].strip()=='Van':
+                obj['type'] = 'Car'
+
             # Easy / medium / hard restraints
             if obj['type'].strip() not in self._classes \
             or (obj['truncated']>cfg.MAX_TRUNCATED) \
             or (obj['occluded']>cfg.MAX_OCCLUDED) \
             or (y2-y1<cfg.MIN_HEIGHT) \
             or (x1<cfg.MIN_X1):
-                gt_classes[ix] = -1
+                gt_classes[saved] = -1
             else:
                 cls = self._class_to_ind[str(obj['type'].strip())]
-                gt_classes[ix] = cls
-                overlaps[ix, cls] = 1.0
+                gt_classes[saved] = cls
+                overlaps[saved, cls] = 1.0
                 if STATS:
                   self.aspect_ratios.append((y2 - y1)/(x2 - x1))
                   self.widths.append((x2 - x1))
                   self.heights.append((y2 - y1))
                   self.areas.append((x2 - x1)*(y2 - y1))
-            boxes[ix, :] = [x1, y1, x2, y2]
-            seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
-            gt_orientation[ix] = obj['alpha']
+            boxes[saved, :] = [x1, y1, x2, y2]
+            seg_areas[saved] = (x2 - x1 + 1) * (y2 - y1 + 1)
+            gt_orientation[saved] = obj['alpha']
 
             # Undefined angle if class is not valid
-            if gt_classes[ix] == -1:
-                gt_orientation[ix]=-10
+            if gt_classes[saved] == -1:
+                gt_orientation[saved]=-10
             else:
-                assert gt_orientation[ix]<8
+                assert gt_orientation[saved]<8
+
+            saved += 1
 
         overlaps = scipy.sparse.csr_matrix(overlaps)
 
