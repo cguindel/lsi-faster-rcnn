@@ -246,6 +246,11 @@ __C.MAX_TRUNCATED = 1.0
 __C.MIN_HEIGHT = 0
 __C.MIN_X1 = 0
 
+# Out-of-range filter
+__C.PREFILTER = False
+__C.PREFILTER_WIDTH = 10000
+__C.PREFILTER_HEIGHT = 10000
+
 # Use modified CPU NMS
 __C.USE_CUSTOM_NMS = False
 
