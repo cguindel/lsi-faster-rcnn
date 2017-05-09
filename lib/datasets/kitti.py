@@ -158,9 +158,9 @@ class kitti(imdb):
                 x2 = obj['bbox_xmax']
                 y2 = obj['bbox_ymax']
                 if  x1<0 or x1>cfg.PREFILTER_WIDTH or \
-                    y1<0 or y1>PREFILTER_HEIGHT or \
-                    x2<0 or x2>PREFILTER_WIDTH or \
-                    y2<0 or y2>PREFILTER_HEIGHT:
+                    y1<0 or y1>cfg.PREFILTER_HEIGHT or \
+                    x2<0 or x2>cfg.PREFILTER_WIDTH or \
+                    y2<0 or y2>cfg.PREFILTER_HEIGHT:
                     out_of_bounds += 1
 
             num_objs = pre_objs.size-out_of_bounds
@@ -183,9 +183,9 @@ class kitti(imdb):
 
             if cfg.PREFILTER:
                 if  x1<0 or x1>cfg.PREFILTER_WIDTH or \
-                    y1<0 or y1>PREFILTER_HEIGHT or \
-                    x2<0 or x2>PREFILTER_WIDTH or \
-                    y2<0 or y2>PREFILTER_HEIGHT:
+                    y1<0 or y1>cfg.PREFILTER_HEIGHT or \
+                    x2<0 or x2>cfg.PREFILTER_WIDTH or \
+                    y2<0 or y2>cfg.PREFILTER_HEIGHT:
                     continue
 
             # TODO
