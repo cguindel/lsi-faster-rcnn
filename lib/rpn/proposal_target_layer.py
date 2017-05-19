@@ -192,7 +192,6 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
     max_overlaps = overlaps.max(axis=1)
     labels = gt_boxes[gt_assignment, 4]
     if cfg.VIEWPOINTS:
-        viewp_ctr = cfg.VIEWP_CTR
         orientations = gt_boxes[gt_assignment, 5]
 
     dontcare_roi_inds = np.where(labels<0)[0]

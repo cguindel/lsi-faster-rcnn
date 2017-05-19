@@ -230,8 +230,6 @@ __C.VIEWPOINTS = False
 
 # Viewpoint bins
 __C.VIEWP_BINS = 8
-__C.VIEWP_CTR = (0.39, 1.18, 1.96, 2.75,
-                -2.75, -1.96, -1.18, -0.39)
 
 # Anchors
 __C.ANCHOR_SCALES = [8, 16, 32]

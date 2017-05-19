@@ -40,9 +40,6 @@ class kitti(imdb):
         self._salt = str(uuid.uuid4())
         self._comp_id = 'comp4'
 
-        # Viewpoint bins:
-        self._orientations = cfg.VIEWP_CTR
-
         if STATS:
             self.aspect_ratios = []
             self.widths = []
@@ -216,7 +213,7 @@ class kitti(imdb):
             if gt_classes[saved] == -1:
                 gt_orientation[saved]=-10
             else:
-                assert gt_orientation[saved]<8
+                assert gt_orientation[saved]<cfg.VIEWP_BINS
 
             saved += 1
 
@@ -323,10 +320,12 @@ class kitti(imdb):
 
                     for k in xrange(dets.shape[0]):
                         if cfg.VIEWPOINTS:
-                            angle = dets[k, -8:]
-                            assert np.amax(angle) < 8
+                            angle = dets[k, -cfg.VIEWP_BINS:]
+                            assert np.amax(angle) < cfg.VIEWP_BINS
                             angle_bin = np.argmax(angle)
-                            estimated_angle = cfg.VIEWP_CTR[angle_bin]
+                            estimated_angle = math.pi * (2 * angle_bin + 1)/cfg.VIEWP_BINS
+                            if estimated_angle > math.pi:
+                                estimated_angle = estimated_angle - math.pi
                             # log(score) to avoid score 0.0
                             estimated_score = math.log(dets[k, -9])
                         else:
@@ -340,7 +339,6 @@ class kitti(imdb):
                                        dets[k, 0], dets[k, 1],
                                        dets[k, 2], dets[k, 3],
                                        estimated_score))
-
 
         print 'Results were saved in', filename
 
