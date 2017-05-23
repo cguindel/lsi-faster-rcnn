@@ -43,8 +43,7 @@ class CropAnglesLayer(caffe.Layer):
 
         prop = np.zeros_like(original)
         for nrow, row in enumerate(prop):
-          row[weights[nrow]==1] = topdiff[nrow,:]
+            row[weights[nrow]==1] = topdiff[nrow,:]
 
         bottom[0].reshape(*prop.shape)
         bottom[0].diff[...] = prop
-    
