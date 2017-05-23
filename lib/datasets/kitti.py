@@ -27,7 +27,7 @@ class kitti(imdb):
         # Paths
         self._devkit_path = os.path.join(cfg.DATA_DIR, 'kitti') if devkit_path is None \
                             else devkit_path
-        self._data_path = os.path.join(self._devkit_path, 'images')
+        self._data_path = os.path.join(self._devkit_path, cfg.TRAIN.KITTI_FOLDER)
         self._kitti_set = 'training' # training / testing
 
         self._image_ext = '.png'
@@ -89,7 +89,7 @@ class kitti(imdb):
         This function loads/saves from/to a cache file to speed up future calls.
         """
         cache_file = os.path.join(self.cache_path, self.name + '_gt_roidb.pkl')
-        if os.path.exists(cache_file):
+        if os.path.exists(cache_file) and cfg.TRAIN.KITTI_USE_CACHE:
             with open(cache_file, 'rb') as fid:
                 roidb = cPickle.load(fid)
             print '{} gt roidb loaded from {}'.format(self.name, cache_file)

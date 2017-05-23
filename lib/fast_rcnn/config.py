@@ -129,7 +129,10 @@ __C.TRAIN.RPN_DONTCARE_OVERLAP = 0.1
 __C.TRAIN.DONTCARE_OVERLAP = 0.1
 # Use 4 channels to train
 __C.TRAIN.FOURCHANNELS = False
-
+# KITTI images folder
+__C.TRAIN.KITTI_FOLDER = 'images'
+# Force regeneration of the dataset cache
+__C.TRAIN.KITTI_USE_CACHE = False
 
 #
 # Testing options
