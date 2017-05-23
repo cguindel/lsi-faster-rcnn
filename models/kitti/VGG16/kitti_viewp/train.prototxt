@@ -698,7 +698,7 @@ layer {
   propagate_down: 0
   top: 'viewpoints_crop'
   python_param {
-    module: 'rpn.crop_angles'
+    module: 'fast_rcnn.crop_angles'
     layer: 'CropAnglesLayer'
   }
 }
