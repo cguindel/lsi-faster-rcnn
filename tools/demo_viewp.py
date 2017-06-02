@@ -2,9 +2,10 @@
 
 # --------------------------------------------------------
 # LSI-Faster R-CNN
-# Copyright (c) 2017 Carlos Guindel
+# Original work Copyright (c) 2015 Microsoft
+# Modified work Copyright 2017 Carlos Guindel
 # Licensed under The MIT License [see LICENSE for details]
-# Developed at Universidad Carlos III de Madrid
+# Based on code written by Ross Girshick
 # --------------------------------------------------------
 
 """

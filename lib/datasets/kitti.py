@@ -1,6 +1,10 @@
 # --------------------------------------------------------
-# LSI Faster R-CNN
-# Written by C. Guindel at UC3M
+# LSI-Faster R-CNN
+# Original work Copyright (c) 2015 Microsoft
+# Modified work Copyright 2017 Carlos Guindel
+# Licensed under The MIT License [see LICENSE for details]
+# Based on code written by Ross Girshick
+# --------------------------------------------------------
 # Note:
 # KITTI Object Dataset is expected to be at $FRCN_ROOT/data/kitti/images
 # --------------------------------------------------------
@@ -246,6 +250,61 @@ class kitti(imdb):
                     'flipped' : False,
                     'seg_areas' : seg_areas
                     }
+
+    def external_roidb(self):
+        print 'Called external_roidb'
+        cache_file = os.path.join(self.cache_path, self.name + '_external_roidb.pkl')
+        if os.path.exists(cache_file) and cfg.TRAIN.KITTI_USE_CACHE:
+            with open(cache_file, 'rb') as fid:
+                roidb = cPickle.load(fid)
+            print '{} external roidb loaded from {}'.format(self.name, cache_file)
+            return roidb
+
+        boxes = [self._load_external_annotation(index)
+                    for index in self.image_index]
+
+        self.create_roidb_from_box_list(boxes, gt_roidb)
+
+        with open(cache_file, 'wb') as fid:
+            cPickle.dump(gt_roidb, fid, cPickle.HIGHEST_PROTOCOL)
+        print 'wrote external roidb to {}'.format(cache_file)
+
+        return external_roidb
+
+    def _load_external_annotation(self, index):
+        """
+        Load image and bounding boxes info from XML file in the PASCAL VOC
+        format.
+        """
+        filename = os.path.join(self._devkit_path, 'rois',
+                                index + '.txt')
+        print 'External: Loading: {}'.format(filename)
+
+        pre_objs = np.genfromtxt(filename, delimiter=' ',
+               names=['type', 'truncated', 'occluded', 'alpha',
+                        'bbox_xmin', 'bbox_ymin', 'bbox_xmax', 'bbox_ymax',
+                        'dimensions_1', 'dimensions_2', 'dimensions_3',
+                        'location_1', 'location_2', 'location_3',
+                        'rotation_y', 'score'], dtype=None)
+
+        # Just in case no objects are present
+        if (pre_objs.ndim < 1):
+            pre_objs = np.array(pre_objs, ndmin=1)
+
+        num_objs = pre_objs.size
+
+        # Load object bounding boxes into a data frame.
+        saved = 0
+        box_list = []
+        for ix, obj in enumerate(pre_objs):
+            x1 = obj['bbox_xmin']
+            y1 = obj['bbox_ymin']
+            x2 = obj['bbox_xmax']
+            y2 = obj['bbox_ymax']
+
+            box_list.append([x1, y1, x2, y2])
+
+        return box_list
 
     def dollar_roidb(self):
         """

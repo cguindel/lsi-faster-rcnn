@@ -1,9 +1,9 @@
 # --------------------------------------------------------
-# Faster R-CNN
-# Copyright (c) 2015 Microsoft
+# LSI-Faster R-CNN
+# Original work Copyright (c) 2015 Microsoft
+# Modified work Copyright 2017 Carlos Guindel
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Ross Girshick and Sean Bell
-# Modified by C. Guindel at UC3M
+# Originally written by Ross Girshick and Sean Bell
 # --------------------------------------------------------
 
 import caffe

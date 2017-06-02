@@ -1,3 +1,11 @@
+# --------------------------------------------------------
+# LSI-Faster R-CNN
+# Original work Copyright (c) 2015 Microsoft
+# Modified work Copyright 2017 Carlos Guindel
+# Licensed under The MIT License [see LICENSE for details]
+# Written by Carlos Guindel
+# --------------------------------------------------------
+
 import caffe
 import numpy as np
 from fast_rcnn.config import cfg
