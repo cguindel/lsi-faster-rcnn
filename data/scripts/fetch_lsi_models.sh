@@ -1,11 +1,12 @@
 #!/bin/bash
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../" && pwd )"
+echo $DIR
 cd $DIR
 
-FILE=imagenet_models.tgz
-URL=https://dl.dropbox.com/s/gstw7122padlf0l/imagenet_models.tgz?dl=0
-CHECKSUM=ed34ca912d6782edfb673a8c3a0bda6d
+FILE=lsi_models.tar.gz
+URL=https://www.dropbox.com/s/4vc34t8zxj1fvzp/lsi_models.tar.gz?dl=0
+CHECKSUM=033d95b4c7da8d53b10d06e045e5848c
 
 if [ -f $FILE ]; then
   echo "File already exists. Checking md5..."
@@ -23,7 +24,7 @@ if [ -f $FILE ]; then
   fi
 fi
 
-echo "Downloading pretrained ImageNet models (1G)..."
+echo "Downloading LSI Faster R-CNN demo model (509M)..."
 
 wget $URL -O $FILE
 

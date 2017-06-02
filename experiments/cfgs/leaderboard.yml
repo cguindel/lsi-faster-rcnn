@@ -1,0 +1,63 @@
+EXP_DIR: leaderboard
+MODELS_DIR: '/home/cguindel/lsi-faster-rcnn/models/kitti'
+VIEWPOINTS: True
+TRAIN:
+  # ==Sizes==
+  SCALES: [500]
+  # original config.py: 600
+  MAX_SIZE: 3000
+  # original config.py: 1000
+  RPN_BATCHSIZE: 256
+  # original cfg: 256
+  # ==Train cfg==
+  IMS_PER_BATCH: 1
+  # original cfg: 1
+  SNAPSHOT_ITERS: 30000
+  # original config.py: 10000
+  BBOX_NORMALIZE_TARGETS_PRECOMPUTED: True
+  # original cfg: True
+  PROPOSAL_METHOD: gt
+  # original cfg: gt
+  HAS_RPN: True
+  # original cfg: True
+  # ==Thresholds==
+  # -- Faster R-CNN --
+  FG_THRESH: 0.5
+  # original config.py: 0.5
+  BG_THRESH_LO: 0.0
+  # original cfg: 0.0
+  BG_THRESH_HI: 0.5
+  # original cfg: 0.5
+  # -- RPN --
+  RPN_POSITIVE_OVERLAP: 0.7
+  # original config.py: 0.7
+  RPN_NEGATIVE_OVERLAP: 0.3
+  # original config.py: 0.3
+  # -- DontCare --
+  DONTCARE_OVERLAP: 0.25
+  # not original
+  RPN_DONTCARE_OVERLAP: 0.15
+  # not original
+TEST:
+  SCALES: [500]
+  # original config.py: 600
+  MAX_SIZE: 3000
+  # original config.py: 1000
+  HAS_RPN: True
+  # original cfg: True
+  DO_NMS: True
+  # not original
+  NMS: 0.3
+  # original config.py: 0.3
+
+#PIXEL_MEANS: [[[134.8774, 135.1622, 135.8740]]]
+PIXEL_MEANS: [[[95.8773, 98.7604, 93.8330]]]
+CLASSES: ['__background__', # always index 0
+          'Car', 'Van', 'Truck', 'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram']
+
+MAX_OCCLUDED: 2
+MAX_TRUNCATED: 0.5
+MIN_HEIGHT: 25
+ANCHOR_SCALES: [5, 7, 9]
+ANCHOR_ASPECT_RATIOS: [0.4, 0.7, 2.5]
+RNG_SEED: 3

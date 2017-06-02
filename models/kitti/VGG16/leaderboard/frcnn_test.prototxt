@@ -1,19 +1,18 @@
 name: "VGG_ILSVRC_16_layers"
-layer {
-  name: 'input-data'
-  type: 'Python'
-  top: 'data'
-  top: 'im_info'
-  top: 'gt_boxes'
-  python_param {
-    module: 'roi_data_layer.layer'
-    layer: 'RoIDataLayer'
-    # NUM_CLASSES (original: 21)
-    param_str: "'num_classes': 8"
-  }
+
+input: "data"
+input_shape {
+  dim: 1
+  dim: 3
+  dim: 1660
+  dim: 500
 }
 
-#========= conv1-conv5 ============
+input: "rois"
+input_shape {
+  dim: 1 # to be changed on-the-fly to num ROIs
+  dim: 5 # [batch ind, x1, y1, x2, y2] zero-based indexing
+}
 
 layer {
   name: "conv1_1"
@@ -144,9 +143,11 @@ layer {
   top: "conv3_1"
   param {
     lr_mult: 1
+    decay_mult: 1
   }
   param {
     lr_mult: 2
+    decay_mult: 0
   }
   convolution_param {
     num_output: 256
@@ -167,9 +168,11 @@ layer {
   top: "conv3_2"
   param {
     lr_mult: 1
+    decay_mult: 1
   }
   param {
     lr_mult: 2
+    decay_mult: 0
   }
   convolution_param {
     num_output: 256
@@ -190,9 +193,11 @@ layer {
   top: "conv3_3"
   param {
     lr_mult: 1
+    decay_mult: 1
   }
   param {
     lr_mult: 2
+    decay_mult: 0
   }
   convolution_param {
     num_output: 256
@@ -224,9 +229,11 @@ layer {
   top: "conv4_1"
   param {
     lr_mult: 1
+    decay_mult: 1
   }
   param {
     lr_mult: 2
+    decay_mult: 0
   }
   convolution_param {
     num_output: 512
@@ -247,9 +254,11 @@ layer {
   top: "conv4_2"
   param {
     lr_mult: 1
+    decay_mult: 1
   }
   param {
     lr_mult: 2
+    decay_mult: 0
   }
   convolution_param {
     num_output: 512
@@ -270,9 +279,11 @@ layer {
   top: "conv4_3"
   param {
     lr_mult: 1
+    decay_mult: 1
   }
   param {
     lr_mult: 2
+    decay_mult: 0
   }
   convolution_param {
     num_output: 512
@@ -304,9 +315,11 @@ layer {
   top: "conv5_1"
   param {
     lr_mult: 1
+    decay_mult: 1
   }
   param {
     lr_mult: 2
+    decay_mult: 0
   }
   convolution_param {
     num_output: 512
@@ -327,9 +340,11 @@ layer {
   top: "conv5_2"
   param {
     lr_mult: 1
+    decay_mult: 1
   }
   param {
     lr_mult: 2
+    decay_mult: 0
   }
   convolution_param {
     num_output: 512
@@ -350,9 +365,11 @@ layer {
   top: "conv5_3"
   param {
     lr_mult: 1
+    decay_mult: 1
   }
   param {
     lr_mult: 2
+    decay_mult: 0
   }
   convolution_param {
     num_output: 512
@@ -366,187 +383,6 @@ layer {
   bottom: "conv5_3"
   top: "conv5_3"
 }
-
-#========= RPN ============
-
-layer {
-  name: "rpn_conv/3x3"
-  type: "Convolution"
-  bottom: "conv5_3"
-  top: "rpn/output"
-  param { lr_mult: 1.0 }
-  param { lr_mult: 2.0 }
-  convolution_param {
-    num_output: 512
-    kernel_size: 3 pad: 1 stride: 1
-    weight_filler { type: "gaussian" std: 0.01 }
-    bias_filler { type: "constant" value: 0 }
-  }
-}
-layer {
-  name: "rpn_relu/3x3"
-  type: "ReLU"
-  bottom: "rpn/output"
-  top: "rpn/output"
-}
-
-layer {
-  name: "rpn_cls_score"
-  type: "Convolution"
-  bottom: "rpn/output"
-  top: "rpn_cls_score"
-  param { lr_mult: 1.0 }
-  param { lr_mult: 2.0 }
-  convolution_param {
-    # 2 * NUM_ANCHORS (original: 18)
-    num_output: 18   # 2(bg/fg) * 9(anchors)
-    kernel_size: 1 pad: 0 stride: 1
-    weight_filler { type: "gaussian" std: 0.01 }
-    bias_filler { type: "constant" value: 0 }
-  }
-}
-
-layer {
-  name: "rpn_bbox_pred"
-  type: "Convolution"
-  bottom: "rpn/output"
-  top: "rpn_bbox_pred"
-  param { lr_mult: 1.0 }
-  param { lr_mult: 2.0 }
-  convolution_param {
-    # 4 * NUM_ANCHORS (original: 36)
-    num_output: 36   # 4 * 9(anchors)
-    kernel_size: 1 pad: 0 stride: 1
-    weight_filler { type: "gaussian" std: 0.01 }
-    bias_filler { type: "constant" value: 0 }
-  }
-}
-
-layer {
-   bottom: "rpn_cls_score"
-   top: "rpn_cls_score_reshape"
-   name: "rpn_cls_score_reshape"
-   type: "Reshape"
-   reshape_param { shape { dim: 0 dim: 2 dim: -1 dim: 0 } }
-}
-
-layer {
-  name: 'rpn-data'
-  type: 'Python'
-  bottom: 'rpn_cls_score'
-  bottom: 'gt_boxes'
-  bottom: 'im_info'
-#  DEBUG
-#  bottom: 'data'
-  top: 'rpn_labels'
-  top: 'rpn_bbox_targets'
-  top: 'rpn_bbox_inside_weights'
-  top: 'rpn_bbox_outside_weights'
-  python_param {
-    module: 'rpn.anchor_target_layer'
-    layer: 'AnchorTargetLayer'
-    param_str: "'feat_stride': 16"
-  }
-}
-
-layer {
-  name: "rpn_loss_cls"
-  type: "SoftmaxWithLoss"
-  bottom: "rpn_cls_score_reshape"
-  bottom: "rpn_labels"
-  propagate_down: 1
-  propagate_down: 0
-  top: "rpn_cls_loss"
-  loss_weight: 1
-  loss_param {
-    ignore_label: -1
-    normalize: true
-  }
-}
-
-layer {
-  name: "rpn_loss_bbox"
-  type: "SmoothL1Loss"
-  bottom: "rpn_bbox_pred"
-  bottom: "rpn_bbox_targets"
-  bottom: 'rpn_bbox_inside_weights'
-  bottom: 'rpn_bbox_outside_weights'
-  top: "rpn_loss_bbox"
-  loss_weight: 1
-  smooth_l1_loss_param { sigma: 3.0 }
-}
-
-#========= RoI Proposal ============
-
-layer {
-  name: "rpn_cls_prob"
-  type: "Softmax"
-  bottom: "rpn_cls_score_reshape"
-  top: "rpn_cls_prob"
-}
-
-layer {
-  name: 'rpn_cls_prob_reshape'
-  type: 'Reshape'
-  bottom: 'rpn_cls_prob'
-  top: 'rpn_cls_prob_reshape'
-  # 2 * NUM_ANCHORS (original: 18)
-  reshape_param { shape { dim: 0 dim: 18 dim: -1 dim: 0 } }
-}
-
-layer {
-  name: 'proposal'
-  type: 'Python'
-  bottom: 'rpn_cls_prob_reshape'
-  bottom: 'rpn_bbox_pred'
-  bottom: 'im_info'
-  top: 'rpn_rois'
-#  top: 'rpn_scores'
-  python_param {
-    module: 'rpn.proposal_layer'
-    layer: 'ProposalLayer'
-    param_str: "'feat_stride': 16"
-  }
-}
-
-#layer {
-#  name: 'debug-data'
-#  type: 'Python'
-#  bottom: 'data'
-#  bottom: 'rpn_rois'
-#  bottom: 'rpn_scores'
-#  python_param {
-#    module: 'rpn.debug_layer'
-#    layer: 'RPNDebugLayer'
-#  }
-#}
-
-layer {
-  name: 'roi-data'
-  type: 'Python'
-  bottom: 'rpn_rois'
-  bottom: 'gt_boxes'
-#  DEBUG
-#  bottom: 'data'
-  top: 'rois'
-  top: 'labels'
-  top: 'bbox_targets'
-  top: 'bbox_inside_weights'
-  top: 'bbox_outside_weights'
-  # not original:
-  top: 'gt_viewpoints_pd'
-  # not original:
-  top: 'viewpoints_weights'
-  python_param {
-    module: 'rpn.proposal_target_layer'
-    layer: 'ProposalTargetLayer'
-    # N_CLASSES (original: 21)
-    param_str: "'num_classes': 8"
-  }
-}
-
-#========= RCNN ============
-
 layer {
   name: "roi_pool5"
   type: "ROIPooling"
@@ -566,9 +402,11 @@ layer {
   top: "fc6"
   param {
     lr_mult: 1
+    decay_mult: 1
   }
   param {
     lr_mult: 2
+    decay_mult: 0
   }
   inner_product_param {
     num_output: 4096
@@ -586,7 +424,6 @@ layer {
   bottom: "fc6"
   top: "fc6"
   dropout_param {
-    # original: 0.5
     dropout_ratio: 0.5
   }
 }
@@ -597,9 +434,11 @@ layer {
   top: "fc7"
   param {
     lr_mult: 1
+    decay_mult: 1
   }
   param {
     lr_mult: 2
+    decay_mult: 0
   }
   inner_product_param {
     num_output: 4096
@@ -617,7 +456,6 @@ layer {
   bottom: "fc7"
   top: "fc7"
   dropout_param {
-    # original: 0.5
     dropout_ratio: 0.5
   }
 }
@@ -628,12 +466,14 @@ layer {
   top: "cls_score"
   param {
     lr_mult: 1
+    decay_mult: 1
   }
   param {
     lr_mult: 2
+    decay_mult: 0
   }
   inner_product_param {
-    # N_CLASSES (original: 21)
+    # NUM_CLASSES (original: 21)
     num_output: 8
     weight_filler {
       type: "gaussian"
@@ -652,12 +492,14 @@ layer {
   top: "bbox_pred"
   param {
     lr_mult: 1
+    decay_mult: 1
   }
   param {
     lr_mult: 2
+    decay_mult: 0
   }
   inner_product_param {
-    # 4 * N_CLASSES (original: 84)
+    # 4 * NUM_CLASSES (original: 84)
     num_output: 32
     weight_filler {
       type: "gaussian"
@@ -690,60 +532,8 @@ layer {
   }
 }
 layer {
-  name: 'crop-angles'
-  type: 'Python'
-  bottom: 'viewpoints_pd'
-  bottom: 'viewpoints_weights'
-  propagate_down: 1
-  propagate_down: 0
-  top: 'viewpoints_crop'
-  python_param {
-    module: 'fast_rcnn.crop_angles'
-    layer: 'CropAnglesLayer'
-  }
-}
-layer {
-  name: "loss_cls"
-  type: "SoftmaxWithLoss"
+  name: "cls_prob"
+  type: "Softmax"
   bottom: "cls_score"
-  bottom: "labels"
-  propagate_down: 1
-  propagate_down: 0
-  top: "loss_cls"
-  loss_weight: 1
-  loss_param {
-    ignore_label: -1
-    normalize: true
-  }
+  top: "cls_prob"
 }
-layer {
-  name: "loss_bbox"
-  type: "SmoothL1Loss"
-  bottom: "bbox_pred"
-  bottom: "bbox_targets"
-  bottom: "bbox_inside_weights"
-  bottom: "bbox_outside_weights"
-  top: "loss_bbox"
-  loss_weight: 1
-}
-layer {
-  name: "loss_viewp"
-  type: "SoftmaxWithLoss"
-  bottom: "viewpoints_crop"
-  bottom: "gt_viewpoints_pd"
-  propagate_down: 1
-  propagate_down: 0
-  top: "viewp_loss"
-  loss_weight: 1
-  loss_param {
-    ignore_label: -10
-    normalize: true
-  }
-}
-# Silence
-#layer {
-#  name: "silence_gt_viewpoints_pd"
-#  type: "Silence"
-#  bottom: "gt_viewpoints_pd"
-#  bottom: "viewpoints_weights"
-#}

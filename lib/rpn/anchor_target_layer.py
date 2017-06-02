@@ -1,9 +1,9 @@
 # --------------------------------------------------------
-# Faster R-CNN
-# Copyright (c) 2015 Microsoft
+# LSI-Faster R-CNN
+# Original work Copyright (c) 2015 Microsoft
+# Modified work Copyright 2017 Carlos Guindel
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Ross Girshick and Sean Bell
-# Modified by cguindel at UC3M
+# Originally written by Ross Girshick
 # --------------------------------------------------------
 
 import os
@@ -15,6 +15,7 @@ import numpy.random as npr
 from generate_anchors import generate_anchors
 from utils.cython_bbox import bbox_overlaps
 from fast_rcnn.bbox_transform import bbox_transform, bbox_transform_inv
+#import time
 
 DEBUG = False
 BLOCK_VIS = False
@@ -65,6 +66,9 @@ class AnchorTargetLayer(caffe.Layer):
         top[3].reshape(1, A * 4, height, width)
 
     def forward(self, bottom, top):
+
+        #start = time.time()
+
         # Algorithm:
         #
         # for each (H, W) location i
@@ -172,10 +176,13 @@ class AnchorTargetLayer(caffe.Layer):
 
         # Find anchor indices whose greater overlapping is over a dontcare
         # gt_box
-        dontcare_anchor_inds_list = [
-            anchor_ind for anchor_ind, gt_box in enumerate(argmax_overlaps)
-            if gt_box in dontcare_gt_inds]
-        dontcare_anchor_inds = np.array(dontcare_anchor_inds_list)
+        dontcare_anchor_inds = np.where(np.in1d(argmax_overlaps, dontcare_gt_inds))
+
+        # Legacy version - TO BE DELETED
+        # dontcare_anchor_inds_list = [
+        #     anchor_ind for anchor_ind, gt_box in enumerate(argmax_overlaps)
+        #     if gt_box in dontcare_gt_inds]
+        # dontcare_anchor_inds = np.array(dontcare_anchor_inds_list, dtype=np.uint32)
 
         # gt_dontcare_argmax_overlaps: Anchor indices that are max overlappers
         # over a dontcare gt_box
@@ -212,15 +219,22 @@ class AnchorTargetLayer(caffe.Layer):
         labels[gt_dontcare_argmax_overlaps] = -1
 
         # Overlap value for every care/dontcare anchor
-        care_max_overlaps_list = [max_overlaps[anchor_ind]
-                            if anchor_ind not in dontcare_anchor_inds else 0
-                            for anchor_ind, overlp in enumerate(max_overlaps)]
-        dontcare_max_overlaps_list = [max_overlaps[anchor_ind]
-                            if anchor_ind in dontcare_anchor_inds else 0
-                            for anchor_ind, overlp in enumerate(max_overlaps)]
+        dontcare_max_overlaps = np.zeros_like(max_overlaps)
+        dontcare_max_overlaps[dontcare_anchor_inds] = max_overlaps[dontcare_anchor_inds]
 
-        care_max_overlaps = np.array(care_max_overlaps_list)
-        dontcare_max_overlaps = np.array(dontcare_max_overlaps_list)
+        care_max_overlaps = max_overlaps.copy()
+        care_max_overlaps[dontcare_anchor_inds] = 0
+
+        # Legacy version - TO BE DELETED
+        # care_max_overlaps_list = [max_overlaps[anchor_ind]
+        #                     if anchor_ind not in dontcare_anchor_inds else 0
+        #                     for anchor_ind, overlp in enumerate(max_overlaps)]
+        #
+        # dontcare_max_overlaps_list = [max_overlaps[anchor_ind]
+        #                     if anchor_ind in dontcare_anchor_inds else 0
+        #                     for anchor_ind, overlp in enumerate(max_overlaps)]
+        # care_max_overlaps = np.array(care_max_overlaps_list)
+        # dontcare_max_overlaps = np.array(dontcare_max_overlaps_list)
 
         # fg label: above threshold IOU
         labels[care_max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
@@ -292,6 +306,20 @@ class AnchorTargetLayer(caffe.Layer):
         bbox_outside_weights = _unmap(bbox_outside_weights, total_anchors, inds_inside, fill=0)
 
         if DEBUG:
+            # TODO: do we want this?
+            np.set_printoptions(threshold=np.nan)
+            print 'labels 1'
+            print labels[labels>0].shape
+            print 'labels 0'
+            print labels[labels==0].shape
+            print 'bbox_targets'
+            print bbox_targets.shape
+            print 'bbox_inside_weights'
+            print bbox_inside_weights[bbox_inside_weights>0]
+            print 'bbox_outside_weights'
+            print bbox_outside_weights[bbox_inside_weights>0]
+
+        if DEBUG:
             print 'rpn: max max_overlap', np.max(max_overlaps)
             print 'rpn: num_positive', np.sum(labels == 1)
             print 'rpn: num_negative', np.sum(labels == 0)
@@ -330,6 +358,9 @@ class AnchorTargetLayer(caffe.Layer):
         assert bbox_outside_weights.shape[3] == width
         top[3].reshape(*bbox_outside_weights.shape)
         top[3].data[...] = bbox_outside_weights
+
+        #end = time.time()
+        #print 'anchor_target_layer', end - start
 
     def backward(self, top, propagate_down, bottom):
         """This layer does not propagate gradients."""

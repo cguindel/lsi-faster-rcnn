@@ -1,9 +1,9 @@
 # --------------------------------------------------------
-# Fast R-CNN
-# Copyright (c) 2015 Microsoft
+# LSI-Faster R-CNN
+# Original work Copyright (c) 2015 Microsoft
+# Modified work Copyright 2017 Carlos Guindel
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Ross Girshick
-# Modified by C. Guindel at UC3M
+# Originally written by Ross Girshick
 # --------------------------------------------------------
 
 """Fast R-CNN config system.
@@ -129,7 +129,12 @@ __C.TRAIN.RPN_DONTCARE_OVERLAP = 0.1
 __C.TRAIN.DONTCARE_OVERLAP = 0.1
 # Use 4 channels to train
 __C.TRAIN.FOURCHANNELS = False
+# KITTI images folder
+__C.TRAIN.KITTI_FOLDER = 'images'
+# Force regeneration of the dataset cache
+__C.TRAIN.KITTI_USE_CACHE = False
 
+__C.TRAIN.EXTERNAL_ROIS = False
 
 #
 # Testing options
@@ -230,8 +235,6 @@ __C.VIEWPOINTS = False
 
 # Viewpoint bins
 __C.VIEWP_BINS = 8
-__C.VIEWP_CTR = (0.39, 1.18, 1.96, 2.75,
-                -2.75, -1.96, -1.18, -0.39)
 
 # Anchors
 __C.ANCHOR_SCALES = [8, 16, 32]
@@ -245,6 +248,11 @@ __C.MAX_OCCLUDED = 3
 __C.MAX_TRUNCATED = 1.0
 __C.MIN_HEIGHT = 0
 __C.MIN_X1 = 0
+
+# Out-of-range filter
+__C.PREFILTER = False
+__C.PREFILTER_WIDTH = 10000
+__C.PREFILTER_HEIGHT = 10000
 
 # Use modified CPU NMS
 __C.USE_CUSTOM_NMS = False

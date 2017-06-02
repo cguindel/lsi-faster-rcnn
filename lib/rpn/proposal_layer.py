@@ -1,9 +1,9 @@
 # --------------------------------------------------------
-# Faster R-CNN
-# Copyright (c) 2015 Microsoft
+# LSI-Faster R-CNN
+# Original work Copyright (c) 2015 Microsoft
+# Modified work Copyright 2017 Carlos Guindel
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Ross Girshick and Sean Bell
-# Modified by C. Guindel at UC3M
+# Originally written by Ross Girshick and Sean Bell
 # --------------------------------------------------------
 
 import caffe
@@ -175,7 +175,8 @@ class ProposalLayer(caffe.Layer):
           blob = a_proposals
 
         #TODO: ablation experiments
-        #blob = a_extra_rois
+        # if n_extra_rois>0:
+        #     blob = a_extra_rois
 
         top[0].reshape(*(blob.shape))
         top[0].data[...] = blob

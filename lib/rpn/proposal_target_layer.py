@@ -1,9 +1,9 @@
 # --------------------------------------------------------
-# Faster R-CNN
-# Copyright (c) 2015 Microsoft
+# LSI-Faster R-CNN
+# Original work Copyright (c) 2015 Microsoft
+# Modified work Copyright 2017 Carlos Guindel
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Ross Girshick and Sean Bell
-# Modified by C. Guindel at UC3M
+# Originally written by Ross Girshick and Sean Bell
 # --------------------------------------------------------
 
 import caffe
@@ -192,7 +192,6 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
     max_overlaps = overlaps.max(axis=1)
     labels = gt_boxes[gt_assignment, 4]
     if cfg.VIEWPOINTS:
-        viewp_ctr = cfg.VIEWP_CTR
         orientations = gt_boxes[gt_assignment, 5]
 
     dontcare_roi_inds = np.where(labels<0)[0]
