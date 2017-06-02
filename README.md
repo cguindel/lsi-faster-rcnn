@@ -1,34 +1,48 @@
+This repository contains a modified version of the deep-learning-based object detector *Faster* R-CNN, created by Shaoqing Ren, Kaiming He, Ross Girshick and Jian Sun (Microsoft Research). It is a fork of their python implementation available [here](https://github.com/rbgirshick/py-faster-rcnn).
+
+This version, *lsi-faster-rcnn*, has been developed by Carlos Guindel at the [Intelligent Systems Laboratory](http://uc3m.es/islab) research group, from the [Universidad Carlos III de Madrid](http://www.uc3m.es/home).
+
+Features introduced in this fork include:
+* Training (and eventually testing) on the [KITTI Object Detection Dataset](http://www.cvlibs.net/datasets/kitti/eval_object.php).
+* Mixed external/RPN proposals.
+* Discrete viewpoint prediction.
+* Four-channel input.
+
+The last two features are introduced in two research papers currently accepted for publication. Please check the [citation section](#citing-this-work) for further details.
+
 ### Disclaimer
 
-The official Faster R-CNN code (written in MATLAB) is available [here](https://github.com/ShaoqingRen/faster_rcnn).
-If your goal is to reproduce the results in our NIPS 2015 paper, please use the [official code](https://github.com/ShaoqingRen/faster_rcnn).
-
-This repository contains a Python *reimplementation* of the MATLAB code.
-This Python implementation is built on a fork of [Fast R-CNN](https://github.com/rbgirshick/fast-rcnn).
-There are slight differences between the two implementations.
-In particular, this Python port
- - is ~10% slower at test-time, because some operations execute on the CPU in Python layers (e.g., 220ms / image vs. 200ms / image for VGG16)
- - gives similar, but not exactly the same, mAP as the MATLAB version
- - is *not compatible* with models trained using the MATLAB code due to the minor implementation differences
- - **includes approximate joint training** that is 1.5x faster than alternating optimization (for VGG16) -- see these [slides](https://www.dropbox.com/s/xtr4yd4i5e0vw8g/iccv15_tutorial_training_rbg.pdf?dl=0) for more information
-
-# *Faster* R-CNN: Towards Real-Time Object Detection with Region Proposal Networks
-
-By Shaoqing Ren, Kaiming He, Ross Girshick, Jian Sun (Microsoft Research)
-
-This Python implementation contains contributions from Sean Bell (Cornell) written during an MSR internship.
-
-Please see the official [README.md](https://github.com/ShaoqingRen/faster_rcnn/blob/master/README.md) for more details.
-
-Faster R-CNN was initially described in an [arXiv tech report](http://arxiv.org/abs/1506.01497) and was subsequently published in NIPS 2015.
+Modifications have been introduced trying to preserve the different functionalities present in the original Faster R-CNN code, which are largely configurable via parameters. Nevertheless, testing has been conducted over a limited set of combinations of parameters; it is not guaranteed in any case the proper operation under all the configuration alternatives. Pull requests fixing unfeasible configuration setups will be welcome.
 
 ### License
 
-Faster R-CNN is released under the MIT License (refer to the LICENSE file for details).
+This work is released under the MIT License (refer to the LICENSE file for details).
 
-### Citing Faster R-CNN
+### Citing this work
 
-If you find Faster R-CNN useful in your research, please consider citing:
+In case you make use of the solutions adopted in this code regarding the viewpoint estimation, please consider citing:
+
+    @inproceedings{Guindel2017ICVES,
+        author = {Guindel, Carlos and Mart{\'{i}}n, David and Armingol, Jos{\'{e}} M.},
+        booktitle = {IEEE International Conference on Vehicular Electronics
+                     and Safety (ICVES)},
+        title = {Joint Object Detection and Viewpoint Estimation using CNN features},
+        year = {2017},
+        note = {Accepted for presentation}
+    }
+
+Otherwise, if you use the four-channel input solution, please consider citing:
+
+    @inproceedings{Guindel2017EUROCAST,
+        author = {Guindel, Carlos and Mart{\'{i}}n, David and Armingol, Jos{\'{e}} M.},
+        booktitle = {EUROCAST 2017, Extended Abstract Book},
+        title = {Stereo Vision-Based Convolutional Networks for Object Detection
+                 in Driving Environments},
+        year = {2017},
+        note = {Selected to be included in the Springer LNCS volumes}
+    }
+
+You can find the original research paper presenting the Faster R-CNN approach in:
 
     @inproceedings{renNIPS15fasterrcnn,
         Author = {Shaoqing Ren and Kaiming He and Ross Girshick and Jian Sun},
@@ -59,59 +73,80 @@ If you find Faster R-CNN useful in your research, please consider citing:
   USE_CUDNN := 1
   ```
 
-  You can download my [Makefile.config](https://dl.dropboxusercontent.com/s/6joa55k64xo2h68/Makefile.config?dl=0) for reference.
 2. Python packages you might not have: `cython`, `python-opencv`, `easydict`
-3. [Optional] MATLAB is required for **official** PASCAL VOC evaluation only. The code now includes unofficial Python evaluation code.
 
 ### Requirements: hardware
 
-1. For training smaller networks (ZF, VGG_CNN_M_1024) a good GPU (e.g., Titan, K20, K40, ...) with at least 3G of memory suffices
-2. For training Fast R-CNN with VGG16, you'll need a K40 (~11G of memory)
-3. For training the end-to-end version of Faster R-CNN with VGG16, 3G of GPU memory is sufficient (using CUDNN)
+This fork has been tested with the following GPU devices: NVIDIA Tesla K40, Titan X (Pascal), Titan Xp. We gratefully acknowledge the support of NVIDIA Corporation with the donation of the cited devices to our research group.
+
+For reference, training the VGG16 model uses ~6G of memory in the Titan Xp. Training (and inference) could be performed with less powerful devices using smaller network architectures (ZF, VGG_CNN_M_1024).
 
 ### Installation (sufficient for the demo)
 
 1. Clone the Faster R-CNN repository
   ```Shell
   # Make sure to clone with --recursive
-  git clone --recursive https://github.com/rbgirshick/py-faster-rcnn.git
+  git clone --recursive https://github.com/cguindel/lsi-faster-rcnn.git
   ```
+  The `--recursive` flag allows to automatically clone the `caffe-fast-rcnn` submodule. I use [my own fork](https://github.com/cguindel/caffe-fast-rcnn) of [the official repository](https://github.com/rbgirshick/caffe-fast-rcnn). I try to keep it updated with the upstream Caffe repository as far as possible; that is specially relevant when major changes are introduced in some dependency (e.g. cuDNN).
 
 2. We'll call the directory that you cloned Faster R-CNN into `FRCN_ROOT`
 
-   *Ignore notes 1 and 2 if you followed step 1 above.*
+  *Ignore notes 1 and 2 if you followed step 1 above.*
 
-   **Note 1:** If you didn't clone Faster R-CNN with the `--recursive` flag, then you'll need to manually clone the `caffe-fast-rcnn` submodule:
-    ```Shell
-    git submodule update --init --recursive
-    ```
-    **Note 2:** The `caffe-fast-rcnn` submodule needs to be on the `faster-rcnn` branch (or equivalent detached state). This will happen automatically *if you followed step 1 instructions*.
+  **Note 1:** If you didn't clone Faster R-CNN with the `--recursive` flag, then you'll need   to manually clone the `caffe-fast-rcnn` submodule:
+  ```Shell
+  git submodule update --init --recursive
+  ```
+  **Note 2:** My `caffe-fast-rcnn` submodule is expected to be on the `lsi-faster-rcnn` branch. This will happen automatically *if you followed step 1 instructions*.
 
-3. Build the Cython modules
-    ```Shell
-    cd $FRCN_ROOT/lib
-    make
-    ```
+3. Edit the line 135 of lib/setup.py to reflect the CUDA compute capability of your GPU. This can be made with an editor (e.g. gedit):
+  ```Shell
+  cd $FRCN_ROOT/lib
+  gedit setup.py
+  ```
+  The line to be edited is the `arch` flag. For example, for the Titan X Pascal, the following should be writen:
+  ```Python
+  extra_compile_args={'gcc': ["-Wno-unused-function"],
+                              'nvcc': ['-arch=sm_61',
+                                       '--ptxas-options=-v',
+                                       '-c',
+                                       '--compiler-options',
+                                       "'-fPIC'"]},
+  ```
+
+  Then, build the Cython modules.
+  ```Shell
+  cd $FRCN_ROOT/lib
+  make
+  ```
 
 4. Build Caffe and pycaffe
-    ```Shell
-    cd $FRCN_ROOT/caffe-fast-rcnn
-    # Now follow the Caffe installation instructions here:
-    #   http://caffe.berkeleyvision.org/installation.html
+  ```Shell
+  cd $FRCN_ROOT/caffe-fast-rcnn
+  # Now follow the Caffe installation instructions here:
+  #   http://caffe.berkeleyvision.org/installation.html
 
-    # If you're experienced with Caffe and have all of the requirements installed
-    # and your Makefile.config in place, then simply do:
-    make -j8 && make pycaffe
-    ```
+  # If you're experienced with Caffe and have all of the requirements installed
+  # and your Makefile.config in place, then simply do:
+  make -j8 && make pycaffe
+  ```
 
-5. Download pre-computed Faster R-CNN detectors
-    ```Shell
-    cd $FRCN_ROOT
-    ./data/scripts/fetch_faster_rcnn_models.sh
-    ```
+5. If you want to run our demo, please download the trained models:
+  ```Shell
+  cd $FRCN_ROOT
+  ./data/scripts/fetch_lsi_models.sh
+  ```
 
-    This will populate the `$FRCN_ROOT/data` folder with `faster_rcnn_models`. See `data/README.md` for details.
-    These models were trained on VOC 2007 trainval.
+  This will populate the `$FRCN_ROOT/data` folder with `lsi_models`. These models were trained on KITTI.
+
+6. Our demo also requires to found the KITTI object dataset in `$FRCN_ROOT/data/kitti/images`. You will need to download the dataset from [their site](http://www.cvlibs.net/datasets/kitti/) and then create a symbolic link to `$FRCN_ROOT/data/kitti/images`:
+
+  ```Shell
+  ln -s $PATH_TO_OBJECT_KITTI_DATASET $FRCN_ROOT/data/kitti/images
+  ```
+
+  Please note that `PATH_TO_OBJECT_KITTI_DATASET` must contain, at least, the `testing` folder with the left color images (`image_2`) in it.
 
 ### Demo
 
@@ -120,11 +155,11 @@ If you find Faster R-CNN useful in your research, please consider citing:
 To run the demo
 ```Shell
 cd $FRCN_ROOT
-./tools/demo.py
+./tools/demo_viewp.py
 ```
-The demo performs detection using a VGG16 network trained for detection on PASCAL VOC 2007.
+The demo performs Faster R-CNN detection and viewpoint inference using a VGG16 network trained for detection on the [KITTI Object Detection Dataset](http://www.cvlibs.net/datasets/kitti/eval_object.php).
 
-### Beyond the demo: installation for training and testing models
+<!-- ### Beyond the demo: installation for training and testing models
 1. Download the training, validation, test data and VOCdevkit
 
 	```Shell
@@ -159,9 +194,9 @@ The demo performs detection using a VGG16 network trained for detection on PASCA
     Using symlinks is a good idea because you will likely want to share the same PASCAL dataset installation between multiple projects.
 5. [Optional] follow similar steps to get PASCAL VOC 2010 and 2012
 6. [Optional] If you want to use COCO, please see some notes under `data/README.md`
-7. Follow the next sections to download pre-trained ImageNet models
+7. Follow the next sections to download pre-trained ImageNet models -->
 
-### Download pre-trained ImageNet models
+<!-- ### Download pre-trained ImageNet models
 
 Pre-trained ImageNet models can be downloaded for the three networks described in the paper: ZF and VGG16.
 
@@ -170,9 +205,9 @@ cd $FRCN_ROOT
 ./data/scripts/fetch_imagenet_models.sh
 ```
 VGG16 comes from the [Caffe Model Zoo](https://github.com/BVLC/caffe/wiki/Model-Zoo), but is provided here for your convenience.
-ZF was trained at MSRA.
+ZF was trained at MSRA. -->
 
-### Usage
+<!-- ### Usage
 
 To train and test a Faster R-CNN detector using the **alternating optimization** algorithm from our NIPS 2015 paper, use `experiments/scripts/faster_rcnn_alt_opt.sh`.
 Output is written underneath `$FRCN_ROOT/output`.
@@ -214,4 +249,4 @@ Test outputs are saved under:
 
 ```
 output/<experiment directory>/<dataset name>/<network snapshot name>/
-```
+``` -->
