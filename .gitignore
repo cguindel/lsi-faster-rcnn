@@ -6,3 +6,5 @@ lib/pycocotools/_mask.so
 data/faster_rcnn_models.tgz
 data/faster_rcnn_models/
 lib/.ropeproject/
+data/kitti/images
+data/lsi_models.tar.gz

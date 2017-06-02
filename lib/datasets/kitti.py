@@ -28,7 +28,8 @@ class kitti(imdb):
         self._devkit_path = os.path.join(cfg.DATA_DIR, 'kitti') if devkit_path is None \
                             else devkit_path
         self._data_path = os.path.join(self._devkit_path, cfg.TRAIN.KITTI_FOLDER)
-        self._kitti_set = 'training' # training / testing
+
+        self._kitti_set = 'testing' if image_set[:4]=='test' else 'training' # training / testing
 
         self._image_ext = '.png'
 
