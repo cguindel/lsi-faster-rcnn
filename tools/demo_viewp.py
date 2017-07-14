@@ -22,19 +22,34 @@ from utils.timer import Timer
 import numpy as np
 import caffe, os, sys, cv2
 import argparse
+from os import listdir
+from random import shuffle
 
-CLASSES = ('__background__', # always index 0
-        'Car', 'Van', 'Truck', 'Pedestrian',
-        'Person_sitting', 'Cyclist', 'Tram')
+CLASSES = {'vgg16_7cls':('__background__', # always index 0
+                        'Car', 'Van', 'Truck', 'Pedestrian',
+                        'Person_sitting', 'Cyclist', 'Tram'),
+           'vgg16_3cls': ('__background__', # always index 0
+                        'Car', 'Pedestrian', 'Cyclist')
+                          }
 
-CLASS_COLOR = ((0,0,0),
-        (0,0,255), (0,128,255),(0,192,255),(255,255,0),
-        (128,128,0),(0,255,255), (255,255,255), (0,0,0))
+CLASS_COLOR = {'vgg16_7cls': ((0,0,0),
+                              (0,0,255), (0,128,255),(0,192,255),(255,255,0),
+                              (128,128,0),(0,255,255), (255,255,255), (0,0,0)),
+               'vgg16_3cls': ((0,0,0),
+                              (0,0,255),(255,255,0), (0,255,255))
+                              }
 
-NETS = {'vgg16': ('VGG16',
-                  'lsi_vgg16.caffemodel',
-                  'lsi_models',
-                  'leaderboard')}
+NETS = {'vgg16_7cls': ('VGG16',
+                      'lsi_vgg16_7cls.caffemodel',
+                      'lsi_models',
+                      'leaderboard_7cls'),
+        'vgg16_3cls': ('VGG16',
+                      'lsi_vgg16_3cls.caffemodel',
+                      'lsi_models',
+                      'leaderboard')}
+
+images_folder = os.path.join(cfg.DATA_DIR, \
+                            'kitti', 'images', 'testing', 'image_2')
 
 def softmax(x):
     """Compute softmax values for each sets of scores in x."""
@@ -50,8 +65,12 @@ def draw_detections(image, scores, boxes, viewpoints, thresh=0.5):
     CONF_THRESH = 0.8
     NMS_THRESH = 0.3
 
-    for cls_ind, cls in enumerate(CLASSES[1:]):
-        cls_ind += 1 # because we skipped background
+    for cls_ind, cls in enumerate(CLASSES[args.demo_net][1:]):
+
+        if cls_ind >= scores.shape[1]-1:
+            break
+
+        cls_ind += 1 # because we skip background
         cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]
         cls_scores = scores[:, cls_ind]
         cls_viewp = softmax(viewpoints[:, \
@@ -77,10 +96,10 @@ def draw_detections(image, scores, boxes, viewpoints, thresh=0.5):
                 angle_bin = np.argmax(det[-cfg.VIEWP_BINS:])
 
                 cv2.rectangle(image,(int(bbox[0]), int(bbox[1])),
-                    (int(bbox[2]), int(bbox[3])), CLASS_COLOR[cls_ind], 2)
+                    (int(bbox[2]), int(bbox[3])), CLASS_COLOR[args.demo_net][cls_ind], 2)
 
                 cv2.rectangle(alpha,(int(bbox[0]), int(bbox[1])),
-                    (int(bbox[2]), int(bbox[3])),CLASS_COLOR[cls_ind], -1)
+                    (int(bbox[2]), int(bbox[3])),CLASS_COLOR[args.demo_net][cls_ind], -1)
 
                 if angle_bin > 3:
                     start_arrow = (int(bbox[0])+width/2, int(bbox[1])-5)
@@ -95,7 +114,7 @@ def draw_detections(image, scores, boxes, viewpoints, thresh=0.5):
 
                     cv2.putText(image, '{:s} ({:.0f}%)'.format(cls, score*100),
                         (int(bbox[0]), int(bbox[3])+15), cv2.FONT_HERSHEY_DUPLEX,
-                        0.4, CLASS_COLOR[cls_ind])
+                        0.4, CLASS_COLOR[args.demo_net][cls_ind])
                 else:
                     start_arrow = (int(bbox[0])+width/2, int(bbox[3])+5)
                     if angle_bin == 0:
@@ -109,25 +128,24 @@ def draw_detections(image, scores, boxes, viewpoints, thresh=0.5):
 
                     cv2.putText(image, '{:s} ({:.0f}%)'.format(cls, score*100),
                         (int(bbox[0]), int(bbox[1])-10), cv2.FONT_HERSHEY_DUPLEX,
-                        0.4, CLASS_COLOR[cls_ind])
+                        0.4, CLASS_COLOR[args.demo_net][cls_ind])
 
                 cv2.arrowedLine(image, start_arrow, end_arrow, \
-                    CLASS_COLOR[cls_ind], 3, cv2.LINE_AA, 0, 0.6)
+                    CLASS_COLOR[args.demo_net][cls_ind], 3, cv2.LINE_AA, 0, 0.6)
 
     nice = cv2.addWeighted(alpha, 0.3, image, 1, 0)
 
     cv2.imshow("demo", nice)
-    cv2.waitKey(0)
+    key = cv2.waitKey(0)
+    return key!=27
 
 def demo(net, image_name):
     """Detect object classes in an image using pre-computed object proposals."""
 
     # Load the demo image
-    im_file = os.path.join(cfg.DATA_DIR, \
-        'kitti', 'images', 'testing', 'image_2', image_name)
+    im_file = os.path.join(images_folder, image_name)
     print im_file
     im = cv2.imread(im_file)
-
 
     # Detect all object classes and regress object bounds
     timer = Timer()
@@ -137,18 +155,20 @@ def demo(net, image_name):
     print ('Detection took {:.3f}s for '
            '{:d} object proposals').format(timer.total_time, boxes.shape[0])
 
-    draw_detections(im, scores, boxes, viewpoints)
+    return draw_detections(im, scores, boxes, viewpoints)
 
 def parse_args():
     """Parse input arguments."""
-    parser = argparse.ArgumentParser(description='Faster R-CNN demo')
+    parser = argparse.ArgumentParser(description='LSI-Faster R-CNN demo')
     parser.add_argument('--gpu', dest='gpu_id', help='GPU device id to use [0]',
                         default=0, type=int)
     parser.add_argument('--cpu', dest='cpu_mode',
                         help='Use CPU mode (overrides --gpu)',
                         action='store_true')
-    parser.add_argument('--net', dest='demo_net', help='Network to use [vgg16]',
-                        choices=NETS.keys(), default='vgg16')
+    parser.add_argument('--net', dest='demo_net', help='Network to use [vgg16_7cls]',
+                        choices=NETS.keys(), default='vgg16_7cls')
+    parser.add_argument('--random', help='Choose random images',
+                        action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -187,11 +207,24 @@ if __name__ == '__main__':
     for i in xrange(2):
         _, _, _= im_detect(net, im)
 
-    im_names = ['000001.png', '000002.png', '000005.png',
-                '000008.png', '000012.png', '000014.png'
-    ]
+    if args.random:
+        im_names = []
+        for file in os.listdir(images_folder):
+            if file.endswith(".png"):
+                im_names.append(file)
 
+        shuffle(im_names)
+    else:
+        im_names = ['000001.png', '000002.png', '000005.png',
+                    '000008.png', '000012.png', '000014.png'
+        ]
+
+    next_img = True
     for im_name in im_names:
         print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
         print 'Demo for {}'.format(im_name)
-        demo(net, im_name)
+        next_img = demo(net, im_name)
+        if not next_img:
+            break
+
+    cv2.destroyAllWindows()

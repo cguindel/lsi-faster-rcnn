@@ -47,9 +47,11 @@ SEQUENCE = 'surveillance'
 
 # video recorder
 fourcc = cv2.VideoWriter_fourcc(*'H264')
-record_flag = None;
+video_writer = None;
 
 def vis_detections(im, class_name, dets, thresh=0.5):
+
+    global video_writer
 
     """Draw detected bounding boxes."""
     inds = np.where(dets[:, -1] >= thresh)[0]
@@ -62,16 +64,22 @@ def vis_detections(im, class_name, dets, thresh=0.5):
         bbox = dets[i, :4]
         score = dets[i, -1]
 
-        cv2.rectangle(show_im,(int(bbox[0]), int(bbox[1])),
-            (int(bbox[2]), int(bbox[3])), (0,0,255), 3)
+        # Rectangle color is brighter if its probability is higher
+        if score>0.2:
+            cv2.rectangle(show_im,(int(bbox[0]), int(bbox[1])),
+                (int(bbox[2]), int(bbox[3])), (0,0,255*score), 3)
 
-        cv2.putText(show_im, '{:.0f}%'.format(score*100),
-            (int(bbox[0]), int(bbox[1])-10), cv2.FONT_HERSHEY_DUPLEX,
-            0.6, (0,0,255))
+        # Draw classic certainty percentage
+        # cv2.putText(show_im, '{:.0f}%'.format(score*100),
+        #     (int(bbox[0]), int(bbox[1])-10), cv2.FONT_HERSHEY_DUPLEX,
+        #     0.6, (0,0,255))
 
     cv2.imshow("result", show_im)
     key = cv2.waitKey(3)
     if args.record>0:
+        if video_writer is None:
+            video_writer = cv2.VideoWriter("output.avi", fourcc, 30, (im.shape[1], im.shape[0]))
+            print 'VideoWriter is ready'
         video_writer.write(show_im)
 
     if key==27:    # Esc key to stop
@@ -83,6 +91,10 @@ def demo(net, image_name):
     # Load the demo image
     im_file = os.path.join(cfg.DATA_DIR, SEQUENCE, image_name)
     im = cv2.imread(im_file)
+
+    if im is None:
+        print 'Image {:s} not found'.format(im_file)
+        return
 
     # Detect all object classes and regress object bounds
     timer = Timer()
@@ -117,6 +129,8 @@ def parse_args():
                         choices=NETS.keys(), default='caviar')
     parser.add_argument('--record', dest='record', help='Record video [0]',
                         default=0)
+    parser.add_argument('--scale', dest='scale', help='Test scale [500]',
+                        default=500)
 
     args = parser.parse_args()
 
@@ -142,9 +156,6 @@ if __name__ == '__main__':
 
     print 'Prototxt: ', prototxt
     print 'Caffemodel: ', caffemodel
-
-    if args.record>0:
-        video_writer = cv2.VideoWriter("output.avi", fourcc, 25, (384, 288))
 
     if not os.path.isfile(caffemodel):
         raise IOError(('{:s} not found.').format(caffemodel))
