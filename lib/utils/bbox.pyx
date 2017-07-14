@@ -14,12 +14,14 @@ ctypedef np.float_t DTYPE_t
 
 def bbox_overlaps(
         np.ndarray[DTYPE_t, ndim=2] boxes,
-        np.ndarray[DTYPE_t, ndim=2] query_boxes):
+        np.ndarray[DTYPE_t, ndim=2] query_boxes,
+        unsigned int method=0):
     """
     Parameters
     ----------
     boxes: (N, 4) ndarray of float
     query_boxes: (K, 4) ndarray of float
+    method (int): overlap method (Union, Min)
     Returns
     -------
     overlaps: (N, K) ndarray of overlap between boxes and query_boxes
@@ -27,9 +29,10 @@ def bbox_overlaps(
     cdef unsigned int N = boxes.shape[0]
     cdef unsigned int K = query_boxes.shape[0]
     cdef np.ndarray[DTYPE_t, ndim=2] overlaps = np.zeros((N, K), dtype=DTYPE)
-    cdef DTYPE_t iw, ih, box_area
+    cdef DTYPE_t iw, ih, box_area, boxes_box_area
     cdef DTYPE_t ua
     cdef unsigned int k, n
+    cdef unsigned int m = method
     for k in range(K):
         box_area = (
             (query_boxes[k, 2] - query_boxes[k, 0] + 1) *
@@ -46,10 +49,19 @@ def bbox_overlaps(
                     max(boxes[n, 1], query_boxes[k, 1]) + 1
                 )
                 if ih > 0:
-                    ua = float(
+                    boxes_box_area = (
                         (boxes[n, 2] - boxes[n, 0] + 1) *
-                        (boxes[n, 3] - boxes[n, 1] + 1) +
-                        box_area - iw * ih
+                        (boxes[n, 3] - boxes[n, 1] + 1)
                     )
-                    overlaps[n, k] = iw * ih / ua
+                    if method==0:
+                        ua = float(
+                            boxes_box_area +
+                            box_area - iw * ih
+                        )
+                        overlaps[n, k] = iw * ih / ua
+                    else:
+                        ua = float(
+                            min(boxes_box_area, box_area)
+                        )
+                        overlaps[n, k] = iw * ih / ua
     return overlaps
