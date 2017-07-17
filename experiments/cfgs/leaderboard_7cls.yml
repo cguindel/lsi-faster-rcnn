@@ -1,4 +1,4 @@
-EXP_DIR: leaderboard
+EXP_DIR: leaderboard_7cls
 MODELS_DIR: '/home/cguindel/lsi-faster-rcnn/models/kitti'
 VIEWPOINTS: True
 TRAIN:
@@ -12,7 +12,7 @@ TRAIN:
   # ==Train cfg==
   IMS_PER_BATCH: 1
   # original cfg: 1
-  SNAPSHOT_ITERS: 20000
+  SNAPSHOT_ITERS: 30000
   # original config.py: 10000
   BBOX_NORMALIZE_TARGETS_PRECOMPUTED: True
   # original cfg: True
@@ -50,9 +50,10 @@ TEST:
   NMS: 0.3
   # original config.py: 0.3
 
+#PIXEL_MEANS: [[[134.8774, 135.1622, 135.8740]]]
 PIXEL_MEANS: [[[95.8773, 98.7604, 93.8330]]]
 CLASSES: ['__background__', # always index 0
-          'Car', 'Pedestrian', 'Cyclist']
+          'Car', 'Van', 'Truck', 'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram']
 
 MAX_OCCLUDED: 2
 MAX_TRUNCATED: 0.5
