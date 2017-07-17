@@ -9,3 +9,4 @@ lib/.ropeproject/
 data/kitti/images
 data/lsi_models.tar.gz
 data/lsi_models/
+output
