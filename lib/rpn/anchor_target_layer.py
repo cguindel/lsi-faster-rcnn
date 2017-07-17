@@ -14,8 +14,9 @@ import numpy as np
 import numpy.random as npr
 from generate_anchors import generate_anchors
 from utils.cython_bbox import bbox_overlaps
-from fast_rcnn.bbox_transform import bbox_transform, bbox_transform_inv
-#import time
+from utils.cython_paral_bbox import bbox_overlaps as paral_bbox_overlaps
+from fast_rcnn.bbox_transform import bbox_transform, bbox_transform_inv, clip_boxes
+import time
 
 DEBUG = False
 BLOCK_VIS = False
@@ -90,9 +91,14 @@ class AnchorTargetLayer(caffe.Layer):
         # im_info
         im_info = bottom[2].data[0, :]
 
+        if cfg.TRAIN.EXTERNAL_ROIS:
+            dc_rois = bottom[3].data
+        else:
+            dc_rois = []
+
         if DEBUG:
             assert len(bottom)>3, 'Change the prototxt to provide the image'
-            img = bottom[3].data
+            img = bottom[3].data #TODO: depends on external_rois
             np.set_printoptions(threshold=np.nan)
             print '~~~ ANCHOR_TARGET_LAYER ~~~'
             print 'im_size: ({}, {})'.format(im_info[0], im_info[1])
@@ -163,6 +169,9 @@ class AnchorTargetLayer(caffe.Layer):
         # argmax_overlaps: assigned gt_boxes for each anchor
         argmax_overlaps = overlaps.argmax(axis=1)
 
+        care_overlaps = overlaps[:,care_gt_inds]
+        care_argmax_overlaps = care_gt_inds[care_overlaps.argmax(axis=1)]
+
         # max_overlaps: overlap value over the corresponding gt_box
         # for each anchor
         max_overlaps = overlaps[np.arange(len(inds_inside)), argmax_overlaps]
@@ -215,8 +224,8 @@ class AnchorTargetLayer(caffe.Layer):
             labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
 
         # fg label: for each gt, anchor with highest overlap
-        labels[gt_care_argmax_overlaps] = 1
         labels[gt_dontcare_argmax_overlaps] = -1
+
 
         # Overlap value for every care/dontcare anchor
         dontcare_max_overlaps = np.zeros_like(max_overlaps)
@@ -236,16 +245,51 @@ class AnchorTargetLayer(caffe.Layer):
         # care_max_overlaps = np.array(care_max_overlaps_list)
         # dontcare_max_overlaps = np.array(dontcare_max_overlaps_list)
 
-        # fg label: above threshold IOU
-        labels[care_max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
-
         # dontcare label: above DONTCARE threshold IoU
-        labels[dontcare_max_overlaps > cfg.TRAIN.RPN_POSITIVE_OVERLAP] = -1
+        labels[dontcare_max_overlaps > cfg.TRAIN.RPN_DONTCARE_OVERLAP] = -1
 
         # Here we will double check dontcares according to its threshold
         labels[np.where(overlaps[:,dontcare_gt_inds]>cfg.TRAIN.RPN_DONTCARE_OVERLAP)[0]] = -1
 
+        if len(dc_rois) > 0:
+            dc_rois *= im_info[2] #Scale
+            dc_rois = clip_boxes(dc_rois, im_info[:2])
+
+            #s2 = time.time()
+            dc_overlaps = np.empty((len(anchors), len(dc_rois)), dtype=np.float)
+            paral_bbox_overlaps(
+                np.ascontiguousarray(anchors, dtype=np.float),
+                np.ascontiguousarray(dc_rois, dtype=np.float),
+                dc_overlaps, 1)
+            #e2 = time.time()
+            #print 'bbox_overlaps (anchor_target_layer) {:f} with input1: {:d}, input2: {:d} '.format(e2 - s2, len(anchors), len(dc_rois))
+
+            n_squares=dc_overlaps.sum(axis=1)
+
+            dc_roi_area = cfg.TRAIN.DONTCARE_BOX_SIDE*cfg.TRAIN.DONTCARE_BOX_SIDE*im_info[2]*im_info[2]
+
+            anchor_areas = (anchors[:, 2] - anchors[:, 0] + 1) * \
+                           (anchors[:, 3] - anchors[:, 1] + 1)
+
+            overlapped_area = np.divide(np.multiply(n_squares,dc_roi_area), anchor_areas)
+
+            dc_disable_inds = np.where(overlapped_area>cfg.TRAIN.MIN_DONTCARE_OVERLAP)[0]
+
+            labels[dc_disable_inds] = -1
+
+            if DEBUG:
+                print 'Disabled inds', len(dc_disable_inds)
+
+        # Valid labels MUST clobber dontcare labels
+        #fg label: above threshold IOU
+        labels[care_max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
+
+        # fg label: for each gt, anchor with highest overlap
+        labels[gt_care_argmax_overlaps] = 1
+
         if cfg.TRAIN.RPN_CLOBBER_POSITIVES:
+            # Not tested with our DontCare settings
+            assert -1, 'LSI-Faster-RCNN Invalid configuration: RPN_CLOBBER_POSITIVES'
             # Not active by default
             # assign bg labels last so that negative labels can clobber positives
             labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
@@ -267,7 +311,7 @@ class AnchorTargetLayer(caffe.Layer):
             labels[disable_inds] = -1
 
         bbox_targets = np.zeros((len(inds_inside), 4), dtype=np.float32)
-        bbox_targets = _compute_targets(anchors, gt_boxes[argmax_overlaps, :])
+        bbox_targets = _compute_targets(anchors, gt_boxes[care_argmax_overlaps, :])
 
         bbox_inside_weights = np.zeros((len(inds_inside), 4), dtype=np.float32)
         bbox_inside_weights[labels == 1, :] = np.array(cfg.TRAIN.RPN_BBOX_INSIDE_WEIGHTS)
@@ -329,7 +373,7 @@ class AnchorTargetLayer(caffe.Layer):
             print 'rpn: num_positive avg', self._fg_sum / self._count
             print 'rpn: num_negative avg', self._bg_sum / self._count
 
-            _vis_whats_happening(img, anchors, bbox_targets[inds_inside], labels[inds_inside], block=BLOCK_VIS)
+            _vis_whats_happening(img, anchors, bbox_targets[inds_inside], labels[inds_inside], block=BLOCK_VIS, dc_rois=dc_rois)
 
         # labels
         labels = labels.reshape((1, height, width, A)).transpose(0, 3, 1, 2)
@@ -394,7 +438,7 @@ def _compute_targets(ex_rois, gt_rois):
 
     return bbox_transform(ex_rois, gt_rois[:, :4]).astype(np.float32, copy=False)
 
-def _vis_whats_happening(im_blob, bboxes, targets, labels, block=False):
+def _vis_whats_happening(im_blob, bboxes, targets, labels, block=False, dc_rois=np.empty((0))):
     """Visualize a mini-batch for debugging."""
     import matplotlib.pyplot as plt
     import random
@@ -442,4 +486,15 @@ def _vis_whats_happening(im_blob, bboxes, targets, labels, block=False):
                           roi[3] - roi[1], fill=False,
                           edgecolor=color, linewidth=1)
               )
+
+    if len(dc_rois) > 0:
+        for i in xrange(dc_rois.shape[0]):
+            roi = dc_rois[i,:]
+            plt.figure("RPN anchors no-targets")
+            plt.gca().add_patch(
+            plt.Rectangle((roi[0], roi[1]), roi[2] - roi[0],
+                           roi[3] - roi[1], fill=False,
+                           edgecolor=(1,0,0), linewidth=1)
+                          )
+
     plt.show(block=block)

@@ -296,6 +296,7 @@ def _vis_whats_happening(im_blob, rois, labels, keep_inds):
         (1,0.5,0.5),(0,1,1), (1,1,1), (0,0,0))
 
     import matplotlib.pyplot as plt
+    assert len(im_blob)>0, 'Please modify the prototxt'
     im = im_blob[0, :, :, :].transpose((1, 2, 0)).copy()
     im += cfg.PIXEL_MEANS
     im = im[:, :, (2, 1, 0)]
@@ -304,16 +305,16 @@ def _vis_whats_happening(im_blob, rois, labels, keep_inds):
     plt.imshow(im)
 
     for i in xrange(rois.shape[0]):
-          color = np.random.rand(3,1)
-          lwidth = 4 if labels[i]>0 else 1
-          roi = rois[i, 1:5]
-          plt.gca().add_patch(
-              plt.Rectangle((roi[0], roi[1]), roi[2] - roi[0],
-                          roi[3] - roi[1], fill=False,
-                          edgecolor=color, linewidth=lwidth)
-              )
+        color = np.random.rand(3,1)
+        lwidth = 4 if labels[i]>0 else 1
+        roi = rois[i, 1:5]
+        plt.gca().add_patch(
+            plt.Rectangle((roi[0], roi[1]), roi[2] - roi[0],
+                roi[3] - roi[1], fill=False,
+                edgecolor=color, linewidth=lwidth)
+            )
 
-          plt.gca().annotate(keep_inds[i], (roi[0], roi[3]), color='w', weight='bold',
-                fontsize=8, ha='center', va='center')
+        #   plt.gca().annotate(keep_inds[i], (roi[0], roi[3]), color='w', weight='bold',
+        #         fontsize=8, ha='center', va='center')
 
     plt.show()

@@ -117,6 +117,12 @@ ext_modules = [
         include_dirs = [numpy_include]
     ),
     Extension(
+        "utils.cython_paral_bbox",
+        ["utils/paral_bbox.pyx"],
+        extra_compile_args={'gcc': ["-Wno-cpp", "-Wno-unused-function"], 'cython': ["--compile-args=-fopenmp", "--link-args=-fopenmp"]},
+        include_dirs = [numpy_include]
+    ),
+    Extension(
         "nms.cpu_nms",
         ["nms/cpu_nms.pyx"],
         extra_compile_args={'gcc': ["-Wno-cpp", "-Wno-unused-function"]},

@@ -149,13 +149,38 @@ class imdb(object):
                             if rads!=-10 else -10
                             for elem, rads in enumerate(orient_raw) ]
 
-                entry = {'boxes' : boxes,
-                         'gt_overlaps' : self.roidb[i]['gt_overlaps'],
-                         'gt_classes' : self.roidb[i]['gt_classes'],
-                         'flipped' : True,
-                         'gt_viewpoints' : np.array(orient),
-                         'seg_areas' : self.roidb[i]['seg_areas']
-                         }
+                if cfg.TRAIN.EXTERNAL_ROIS:
+                    er_boxes = self.roidb[i]['external_rois'].copy()
+                    oldx1 = er_boxes[:, 0].copy()
+                    oldx2 = er_boxes[:, 2].copy()
+                    er_boxes[:, 0] = widths[i] - oldx2 - 1
+                    er_boxes[:, 2] = widths[i] - oldx1 - 1
+                    assert (er_boxes[:, 2] >= er_boxes[:, 0]).all()
+
+                    dc_boxes = self.roidb[i]['dc_rois'].copy()
+                    oldx1 = dc_boxes[:, 0].copy()
+                    oldx2 = dc_boxes[:, 2].copy()
+                    dc_boxes[:, 0] = widths[i] - oldx2 - 1
+                    dc_boxes[:, 2] = widths[i] - oldx1 - 1
+                    assert (dc_boxes[:, 2] >= dc_boxes[:, 0]).all()
+
+                    entry = {'boxes' : boxes,
+                             'gt_overlaps' : self.roidb[i]['gt_overlaps'],
+                             'gt_classes' : self.roidb[i]['gt_classes'],
+                             'flipped' : True,
+                             'gt_viewpoints' : np.array(orient),
+                             'seg_areas' : self.roidb[i]['seg_areas'],
+                             'external_rois' : er_boxes,
+                             'dc_rois' : dc_boxes
+                             }
+                else:
+                    entry = {'boxes' : boxes,
+                             'gt_overlaps' : self.roidb[i]['gt_overlaps'],
+                             'gt_classes' : self.roidb[i]['gt_classes'],
+                             'flipped' : True,
+                             'gt_viewpoints' : np.array(orient),
+                             'seg_areas' : self.roidb[i]['seg_areas']
+                             }
             else:
                 entry = {'boxes' : boxes,
                          'gt_overlaps' : self.roidb[i]['gt_overlaps'],
@@ -277,13 +302,24 @@ class imdb(object):
                 overlaps[I, gt_classes[argmaxes[I]]] = maxes[I]
 
             overlaps = scipy.sparse.csr_matrix(overlaps)
-            roidb.append({
-                'boxes' : boxes,
-                'gt_classes' : np.zeros((num_boxes,), dtype=np.int32),
-                'gt_overlaps' : overlaps,
-                'flipped' : False,
-                'seg_areas' : np.zeros((num_boxes,), dtype=np.float32),
-            })
+
+            if cfg.VIEWPOINTS:
+                roidb.append({
+                    'boxes' : boxes,
+                    'gt_classes' : np.zeros((num_boxes,), dtype=np.int32),
+                    'gt_overlaps' : overlaps,
+                    'gt_viewpoints' : np.full((num_boxes,), -10, dtype=np.int32),
+                    'flipped' : False,
+                    'seg_areas' : np.zeros((num_boxes,), dtype=np.float32),
+                })
+            else:
+                roidb.append({
+                    'boxes' : boxes,
+                    'gt_classes' : np.zeros((num_boxes,), dtype=np.int32),
+                    'gt_overlaps' : overlaps,
+                    'flipped' : False,
+                    'seg_areas' : np.zeros((num_boxes,), dtype=np.float32),
+                })
         return roidb
 
     @staticmethod

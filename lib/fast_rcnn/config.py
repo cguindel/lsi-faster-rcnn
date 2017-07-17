@@ -133,8 +133,12 @@ __C.TRAIN.FOURCHANNELS = False
 __C.TRAIN.KITTI_FOLDER = 'images'
 # Force regeneration of the dataset cache
 __C.TRAIN.KITTI_USE_CACHE = False
-
+# Use external ROIs to train (includes miniboxes)
 __C.TRAIN.EXTERNAL_ROIS = False
+# Overlap with miniboxes required to discard anchors
+__C.TRAIN.MIN_DONTCARE_OVERLAP = 0.25
+# Dontcare miniboxes size
+__C.TRAIN.DONTCARE_BOX_SIDE = 20
 
 #
 # Testing options
@@ -183,7 +187,8 @@ __C.TEST.GTPROPOSALS = False
 __C.TEST.FOURCHANNELS = False
 # External proposals
 __C.TEST.EXTERNAL_ROIS = False
-
+# Overlap required to discard proposals
+__C.TEST.DONTCARE_OVERLAP = 0.1
 
 #
 # MISC
