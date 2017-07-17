@@ -7,4 +7,7 @@ data/faster_rcnn_models.tgz
 data/faster_rcnn_models/
 lib/.ropeproject/
 data/kitti/images
+data/kitti/testing
 data/lsi_models.tar.gz
+data/lsi_models/
+output

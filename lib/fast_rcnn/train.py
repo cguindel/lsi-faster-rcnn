@@ -132,13 +132,17 @@ def filter_roidb(roidb):
         #   (1) At least one foreground RoI OR
         #   (2) At least one background RoI
         overlaps = entry['max_overlaps']
+        # if only DontCare labels are present, reject image
+        valid_labels = np.where(entry['gt_classes'] > -1)[0]
         # find boxes with sufficient overlap
         fg_inds = np.where(overlaps >= cfg.TRAIN.FG_THRESH)[0]
         # Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
         bg_inds = np.where((overlaps < cfg.TRAIN.BG_THRESH_HI) &
                            (overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
+
+
         # image is only valid if such boxes exist
-        valid = len(fg_inds) > 0 or len(bg_inds) > 0
+        valid = (len(fg_inds) > 0 or len(bg_inds) > 0) and len(valid_labels>0)
         return valid
 
     num = len(roidb)

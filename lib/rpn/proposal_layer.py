@@ -13,6 +13,8 @@ from fast_rcnn.config import cfg
 from generate_anchors import generate_anchors
 from fast_rcnn.bbox_transform import bbox_transform_inv, clip_boxes
 from fast_rcnn.nms_wrapper import nms
+from utils.cython_paral_bbox import bbox_overlaps
+import time
 
 DEBUG = False
 
@@ -75,14 +77,22 @@ class ProposalLayer(caffe.Layer):
         # This is for the extra RoIs: if not used, everything should be
         # the same than Faster R-CNN with RPN
         if len(bottom) > 3:
-          extra_rois = bottom[3].data
-          n_extra_rois = extra_rois.shape[0]
-          if n_extra_rois == 1 and np.all(extra_rois[0,:] == 0):
+            extra_rois = bottom[3].data
+            n_extra_rois = extra_rois.shape[0]
+            if n_extra_rois == 1 and np.all(extra_rois[0,:] == 0):
+                n_extra_rois = 0
+                extra_rois = np.empty((0,4), dtype=np.float32)
+            if len(bottom) > 4:
+                dontcare_rois = bottom[4].data
+                n_dontcare_rois = dontcare_rois.shape[0]
+                if n_dontcare_rois == 1 and np.all(dontcare_rois[0,:] == 0):
+                    n_dontcare_rois = 0
+                    dontcare_rois = np.empty((0,4), dtype=np.float32)
+        else:
             n_extra_rois = 0
             extra_rois = np.empty((0,4), dtype=np.float32)
-        else:
-          n_extra_rois = 0
-          extra_rois = np.empty((0,4), dtype=np.float32)
+            n_dontcare_rois = 0
+            dontcare_rois = np.empty((0,4), dtype=np.float32)
 
         if DEBUG:
             print 'im_size: ({}, {})'.format(im_info[0], im_info[1])
@@ -142,6 +152,35 @@ class ProposalLayer(caffe.Layer):
         proposals = proposals[keep, :]
         scores = scores[keep]
 
+        # External DontCare miniboxes
+        if len(dontcare_rois) > 0:
+            dontcare_rois = clip_boxes(dontcare_rois, im_info[:2])
+            dc_overlaps = np.empty((len(proposals), len(dontcare_rois)), dtype=np.float)
+            #s1 = time.time()
+            bbox_overlaps(
+                np.ascontiguousarray(proposals, dtype=np.float),
+                np.ascontiguousarray(dontcare_rois, dtype=np.float),
+                dc_overlaps, 1)
+            #e1 = time.time()
+            #print 'bbox_overlaps (proposal_layer) {:f} with input1: {:d}, input2: {:d} '.format(e1 - s1, len(proposals), len(dontcare_rois))
+
+            n_squares=dc_overlaps.sum(axis=1)
+
+            dc_roi_area = cfg.TRAIN.DONTCARE_BOX_SIDE*cfg.TRAIN.DONTCARE_BOX_SIDE*im_info[2]*im_info[2]
+
+            proposal_areas = (proposals[:, 2] - proposals[:, 0] + 1) * \
+                           (proposals[:, 3] - proposals[:, 1] + 1)
+
+            overlapped_area = np.divide(np.multiply(n_squares,dc_roi_area), proposal_areas)
+
+            keep = np.where(overlapped_area<=cfg.TRAIN.MIN_DONTCARE_OVERLAP)[0]
+
+            if DEBUG:
+                print 'Proposal layer saving:', len(keep), 'proposals out of', len(proposals)
+
+            proposals = proposals[keep, :]
+            scores = scores[keep]
+
         # 4. sort all (proposal, score) pairs by score from highest to lowest
         # 5. take top pre_nms_topN (e.g. 6000)
         order = scores.ravel().argsort()[::-1]
@@ -156,15 +195,19 @@ class ProposalLayer(caffe.Layer):
         keep = nms(np.hstack((proposals, scores)), nms_thresh)
         if post_nms_topN > 0:
             keep = keep[:(post_nms_topN-n_extra_rois)]
+        elif post_nms_topN==0 and n_extra_rois>0:
+            keep = []
         proposals = proposals[keep, :]
         scores = scores[keep]
 
         # Output rois blob
         # Our RPN implementation only supports a single input image, so all
         # batch inds are 0
+        if DEBUG:
+            print 'n_extra_rois', n_extra_rois
         if n_extra_rois>0:
-          batch_inds = np.zeros((n_extra_rois, 1), dtype=np.float32)
-          a_extra_rois = np.hstack((batch_inds, extra_rois.astype(np.float32, copy=False)))
+            batch_inds = np.zeros((n_extra_rois, 1), dtype=np.float32)
+            a_extra_rois = np.hstack((batch_inds, extra_rois.astype(np.float32, copy=False)))
 
         batch_inds = np.zeros((proposals.shape[0], 1), dtype=np.float32)
         a_proposals = np.hstack((batch_inds, proposals.astype(np.float32, copy=False)))

@@ -107,7 +107,7 @@ def _get_blobs(im, rois):
         blobs['rois'] = _get_rois_blob(rois, im_scale_factors)
     return blobs, im_scale_factors
 
-def im_detect(net, im, boxes=None, extra_boxes=np.zeros((0,4), dtype=np.float32)):
+def im_detect(net, im, boxes=None, extra_boxes=np.zeros((0,4), dtype=np.float32), dc_boxes=np.zeros((0,4), dtype=np.float32)):
     """Detect object classes in an image given object proposals.
 
     Arguments:
@@ -152,6 +152,8 @@ def im_detect(net, im, boxes=None, extra_boxes=np.zeros((0,4), dtype=np.float32)
         if cfg.TEST.EXTERNAL_ROIS:
             net.blobs['extra_rois'].reshape(*(extra_boxes.shape))
             sc_extra_boxes, _ = _project_im_rois(extra_boxes, im_scales)
+            net.blobs['dc_rois'].reshape(*(dc_boxes.shape))
+            sc_dc_boxes, _ = _project_im_rois(dc_boxes, im_scales)
     else:
         assert(cfg.TEST.EXTERNAL_ROIS == False)
         net.blobs['rois'].reshape(*(blobs['rois'].shape))
@@ -162,6 +164,7 @@ def im_detect(net, im, boxes=None, extra_boxes=np.zeros((0,4), dtype=np.float32)
         forward_kwargs['im_info'] = blobs['im_info'].astype(np.float32, copy=False)
         if cfg.TEST.EXTERNAL_ROIS:
             forward_kwargs['extra_rois'] = sc_extra_boxes
+            forward_kwargs['dc_rois'] = sc_dc_boxes
     else:
         forward_kwargs['rois'] = blobs['rois'].astype(np.float32, copy=False)
     blobs_out = net.forward(**forward_kwargs)

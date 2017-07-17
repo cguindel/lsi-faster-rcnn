@@ -59,8 +59,13 @@ def get_minibatch(roidb, num_classes):
         blobs['im_info'] = np.array(
             [[im_blob.shape[2], im_blob.shape[3], im_scales[0]]],
             dtype=np.float32)
+
+        if cfg.TRAIN.EXTERNAL_ROIS:
+            blobs['external_rois'] = roidb[0]['external_rois']
+            blobs['dc_rois'] = roidb[0]['dc_rois']
+
         if DEBUG:
-          _vis_minibatch_rpn(im_blob, gt_boxes, gt_boxes[:, 4])
+            _vis_minibatch_rpn(im_blob, gt_boxes, gt_boxes[:, 4])
 
     else: # not using RPN
         # Now, build the region of interest and label blobs
@@ -154,6 +159,8 @@ def _get_image_blob(roidb, scale_inds):
     processed_ims = []
     im_scales = []
     for i in xrange(num_images):
+        if DEBUG:
+            print 'Loading:', roidb[i]['image']
         if cfg.TRAIN.FOURCHANNELS:
             im = cv2.imread(roidb[i]['image'], cv2.IMREAD_UNCHANGED)
         else:

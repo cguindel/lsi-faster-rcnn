@@ -9,7 +9,7 @@ layer {
     module: 'roi_data_layer.layer'
     layer: 'RoIDataLayer'
     # NUM_CLASSES (original: 21)
-    param_str: "'num_classes': 8"
+    param_str: "'num_classes': 4"
   }
 }
 
@@ -21,12 +21,10 @@ layer {
   bottom: "data"
   top: "conv1_1"
   param {
-    lr_mult: 0
-    decay_mult: 0
+    lr_mult: 1
   }
   param {
-    lr_mult: 0
-    decay_mult: 0
+    lr_mult: 2
   }
   convolution_param {
     num_output: 64
@@ -46,12 +44,10 @@ layer {
   bottom: "conv1_1"
   top: "conv1_2"
   param {
-    lr_mult: 0
-    decay_mult: 0
+    lr_mult: 1
   }
   param {
-    lr_mult: 0
-    decay_mult: 0
+    lr_mult: 2
   }
   convolution_param {
     num_output: 64
@@ -82,12 +78,10 @@ layer {
   bottom: "pool1"
   top: "conv2_1"
   param {
-    lr_mult: 0
-    decay_mult: 0
+    lr_mult: 1
   }
   param {
-    lr_mult: 0
-    decay_mult: 0
+    lr_mult: 2
   }
   convolution_param {
     num_output: 128
@@ -107,12 +101,10 @@ layer {
   bottom: "conv2_1"
   top: "conv2_2"
   param {
-    lr_mult: 0
-    decay_mult: 0
+    lr_mult: 1
   }
   param {
-    lr_mult: 0
-    decay_mult: 0
+    lr_mult: 2
   }
   convolution_param {
     num_output: 128
@@ -541,7 +533,7 @@ layer {
     module: 'rpn.proposal_target_layer'
     layer: 'ProposalTargetLayer'
     # N_CLASSES (original: 21)
-    param_str: "'num_classes': 8"
+    param_str: "'num_classes': 4"
   }
 }
 
@@ -634,7 +626,7 @@ layer {
   }
   inner_product_param {
     # N_CLASSES (original: 21)
-    num_output: 8
+    num_output: 4
     weight_filler {
       type: "gaussian"
       std: 0.01
@@ -658,7 +650,7 @@ layer {
   }
   inner_product_param {
     # 4 * N_CLASSES (original: 84)
-    num_output: 32
+    num_output: 16
     weight_filler {
       type: "gaussian"
       std: 0.001
@@ -678,7 +670,7 @@ layer {
   param { lr_mult: 2.0 }
   inner_product_param {
     # 8 * NUM_CLASSES (not original)
-    num_output: 64
+    num_output: 32
     weight_filler {
       type: "gaussian"
       std: 0.001 # before: 0.01

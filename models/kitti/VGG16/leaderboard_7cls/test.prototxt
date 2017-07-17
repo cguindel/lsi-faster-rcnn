@@ -567,7 +567,7 @@ layer {
   }
   inner_product_param {
     # NUM_CLASSES (original: 21)
-    num_output: 4
+    num_output: 8
     weight_filler {
       type: "gaussian"
       std: 0.01
@@ -593,7 +593,7 @@ layer {
   }
   inner_product_param {
     # 4 * NUM_CLASSES (original: 84)
-    num_output: 16
+    num_output: 32
     weight_filler {
       type: "gaussian"
       std: 0.001
@@ -613,7 +613,7 @@ layer {
   param { lr_mult: 2.0 }
   inner_product_param {
     # 8 * NUM_CLASSES (not original)
-    num_output: 32
+    num_output: 64
     weight_filler {
       type: "gaussian"
       std: 0.001 # before: 0.01
