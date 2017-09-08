@@ -5,8 +5,8 @@ echo $DIR
 cd $DIR
 
 FILE=lsi_models.tar.gz
-URL=https://www.dropbox.com/s/4vc34t8zxj1fvzp/lsi_models.tar.gz?dl=0
-CHECKSUM=033d95b4c7da8d53b10d06e045e5848c
+URL=https://www.dropbox.com/s/1hmbvxvr649ola1/lsi_models.tar.gz?dl=0
+CHECKSUM=545b954874f3a12c75f3515a91bc9698
 
 if [ -f $FILE ]; then
   echo "File already exists. Checking md5..."

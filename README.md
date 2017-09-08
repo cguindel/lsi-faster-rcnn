@@ -100,7 +100,7 @@ For reference, training the VGG16 model uses ~6G of memory in the Titan Xp. Trai
   ```
   **Note 2:** My `caffe-fast-rcnn` submodule is expected to be on the `lsi-faster-rcnn` branch. This will happen automatically *if you followed step 1 instructions*.
 
-3. Edit the line 135 of lib/setup.py to reflect the CUDA compute capability of your GPU. This can be made with an editor (e.g. gedit):
+3. Edit the line 141 of lib/setup.py to reflect the CUDA compute capability of your GPU. This can be made with an editor (e.g. gedit):
   ```Shell
   cd $FRCN_ROOT/lib
   gedit setup.py
