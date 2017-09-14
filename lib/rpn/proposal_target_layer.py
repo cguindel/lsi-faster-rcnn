@@ -261,12 +261,14 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
         for ix, or_rads in enumerate(orientations):
             if or_rads != -10 :
                 weights[ix][int(labels[ix]*num_bins):int(labels[ix]*num_bins+num_bins)] = 1;
-                if or_rads < 0 :
-                    nbin = math.floor((2*math.pi+or_rads)/(math.pi/4))
-                    angles[ix]=nbin
-                else:
-                    nbin = math.floor(or_rads/(math.pi/4))
-                    angles[ix]=nbin
+                if or_rads < 0:
+                    or_rads = or_rads + 2*math.pi
+                assert(cfg.VIEWP_OFFSET < (2*math.pi/cfg.VIEWP_BINS),
+                       'Offsets greater than the bin itself are not implemented')
+                nbin = math.floor((or_rads+cfg.VIEWP_OFFSET)/(2*math.pi/cfg.VIEWP_BINS))
+                if nbin>cfg.VIEWP_BINS-1:
+                    nbin = 0
+                angles[ix]=nbin
             else:
                 weights[ix][0:num_bins] = 1;
                 angles[ix] = -10;
