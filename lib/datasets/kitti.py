@@ -335,7 +335,8 @@ class kitti(imdb):
                             angle = dets[k, -cfg.VIEWP_BINS:]
                             assert np.amax(angle) < cfg.VIEWP_BINS
                             angle_bin = np.argmax(angle)
-                            estimated_angle = math.pi * (2 * angle_bin + 1)/cfg.VIEWP_BINS
+                            estimated_angle = math.pi * (2 * angle_bin + 1)/cfg.VIEWP_BINS \
+                                                - cfg.VIEWP_OFFSET
                             if estimated_angle > math.pi:
                                 estimated_angle = estimated_angle - 2*math.pi
                             # log(score) to avoid score 0.0

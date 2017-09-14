@@ -240,6 +240,7 @@ __C.VIEWPOINTS = False
 
 # Viewpoint bins
 __C.VIEWP_BINS = 8
+__C.VIEWP_OFFSET = 0.0
 
 # Anchors
 __C.ANCHOR_SCALES = [8, 16, 32]
