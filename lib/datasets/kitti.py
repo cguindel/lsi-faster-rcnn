@@ -184,14 +184,19 @@ class kitti(imdb):
                 dc_rois = np.vstack((dc_rois, [x1, y1, x2, y2]))
                 continue # Jorge's mini squares separately used
 
-            if obj['type'].strip() not in self._classes \
+            # Remap sibling classes
+            cls_name = obj['type'].strip()
+            if cls_name in cfg.CLASSES_MAP[0]:
+                cls_name = cfg.CLASSES_MAP[0][cls_name]
+
+            if cls_name not in self._classes \
             or (obj['truncated']>cfg.MAX_TRUNCATED) \
             or (obj['occluded']>cfg.MAX_OCCLUDED) \
             or (y2-y1<cfg.MIN_HEIGHT) \
             or (x1<cfg.MIN_X1):
                 gt_classes = np.hstack((gt_classes,-1))
             else:
-                cls = self._class_to_ind[str(obj['type'].strip())]
+                cls = self._class_to_ind[str(cls_name)]
                 gt_classes = np.hstack((gt_classes,cls))
 
                 overlap_row = np.zeros(self.num_classes)

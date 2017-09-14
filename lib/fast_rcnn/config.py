@@ -254,6 +254,8 @@ __C.MAX_TRUNCATED = 1.0
 __C.MIN_HEIGHT = 0
 __C.MIN_X1 = 0
 
+__C.CLASSES_MAP = [{'ClassInDataset': 'ClassToTrain'}]
+
 # Out-of-range filter
 __C.PREFILTER = False
 __C.PREFILTER_WIDTH = 10000
