@@ -189,6 +189,8 @@ __C.TEST.FOURCHANNELS = False
 __C.TEST.EXTERNAL_ROIS = False
 # Overlap required to discard proposals
 __C.TEST.DONTCARE_OVERLAP = 0.1
+# Weighted average of angle bins
+__C.TEST.W_ALPHA = False
 
 #
 # MISC

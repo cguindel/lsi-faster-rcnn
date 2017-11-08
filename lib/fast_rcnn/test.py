@@ -348,7 +348,6 @@ def test_net(net, imdb, max_per_image=100, thresh=0.05, vis=False):
               else:
                   scores, boxes = im_detect(net, im, box_proposals)
               _t['im_detect'].toc()
-              print _t['im_detect'].diff
 
             _t['misc'].tic()
             # skip j = 0, because it's the background class

@@ -332,13 +332,45 @@ class kitti(imdb):
 
                     for k in xrange(dets.shape[0]):
                         if cfg.VIEWPOINTS:
-                            angle = dets[k, -cfg.VIEWP_BINS:]
-                            assert np.amax(angle) < cfg.VIEWP_BINS
-                            angle_bin = np.argmax(angle)
-                            estimated_angle = math.pi * (2 * angle_bin + 1)/cfg.VIEWP_BINS \
-                                                - cfg.VIEWP_OFFSET
-                            if estimated_angle > math.pi:
-                                estimated_angle = estimated_angle - 2*math.pi
+                            probs = dets[k, -cfg.VIEWP_BINS:]
+                            max_bin = np.argmax(probs)
+                            assert max_bin < cfg.VIEWP_BINS
+                            if cfg.TEST.W_ALPHA:
+                                prob_max_bin = probs[max_bin]
+                                max_bin_minus = max_bin-1 if max_bin>0 else cfg.VIEWP_BINS-1
+                                max_bin_plus = max_bin+1 if max_bin<cfg.VIEWP_BINS-1 else 0
+                                if probs[max_bin_minus] > probs[max_bin_plus]:
+                                    prob_contig = probs[max_bin_minus]
+                                    contig_bin = max_bin_minus
+                                else:
+                                    prob_contig = probs[max_bin_plus]
+                                    contig_bin = max_bin_plus
+
+                                norm_prob_max_bin = prob_max_bin / (prob_max_bin+prob_contig)
+                                norm_prob_contig = prob_contig / (prob_max_bin+prob_contig)
+
+                                max_alpha = math.pi * (2 * max_bin + 1)/cfg.VIEWP_BINS - cfg.VIEWP_OFFSET
+                                contig_alpha = math.pi * (2 * contig_bin + 1)/cfg.VIEWP_BINS - cfg.VIEWP_OFFSET
+
+                                if abs(max_alpha-contig_alpha) > 2*math.pi - math.pi/4 - 0.01:
+                                    if max_alpha-contig_alpha > 0:
+                                        max_alpha -= 2*math.pi
+                                    else:
+                                        contig_alpha -= 2*math.pi
+
+                                estimated_angle = max_alpha*norm_prob_max_bin + contig_alpha*norm_prob_contig
+                                if estimated_angle < 0:
+                                    estimated_angle += 2*math.pi
+
+                                if estimated_angle > math.pi:
+                                    estimated_angle = estimated_angle - 2*math.pi
+
+                            else:
+                                estimated_angle = math.pi * (2 * max_bin + 1)/cfg.VIEWP_BINS \
+                                                    - cfg.VIEWP_OFFSET
+                                if estimated_angle > math.pi:
+                                    estimated_angle = estimated_angle - 2*math.pi
+
                             # log(score) to avoid score 0.0
                             estimated_score = math.log(dets[k, -9])
                         else:
