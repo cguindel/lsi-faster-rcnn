@@ -30,6 +30,7 @@ wget $URL -O $FILE
 
 echo "Unzipping..."
 
-tar zxvf $FILE
+mkdir -p "lsi_models"
+tar -C "lsi_models" -zxvf $FILE
 
 echo "Done. Please run this command again to verify that checksum = $CHECKSUM."
