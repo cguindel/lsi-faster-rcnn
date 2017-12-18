@@ -719,7 +719,7 @@ layer {
   propagate_down: 0
   loss_weight: 2
   infogain_loss_param {
-    source: "/home/cguindel/lsi-faster-rcnn/models/kitti/VGG16/leaderboard/infogainH.binaryproto"
+    source: "./models/kitti/VGG16/leaderboard/infogainH.binaryproto"
   }
   loss_param {
     ignore_label: -1
