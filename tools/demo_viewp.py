@@ -131,7 +131,7 @@ def draw_detections(image, scores, boxes, viewpoints, thresh=0.5):
                         0.4, CLASS_COLOR[args.demo_net][cls_ind])
 
                 cv2.arrowedLine(image, start_arrow, end_arrow, \
-                    CLASS_COLOR[args.demo_net][cls_ind], 3, cv2.LINE_AA, 0, 0.6)
+                    CLASS_COLOR[args.demo_net][cls_ind], 3, 8, 0, 0.6)
 
     nice = cv2.addWeighted(alpha, 0.3, image, 1, 0)
 
@@ -180,6 +180,8 @@ if __name__ == '__main__':
     cfg.MODELS_DATASET = 'kitti'
     cfg.MODELS_DIR = os.path.abspath(os.path.join(cfg.ROOT_DIR, 'models', \
         cfg.MODELS_DATASET))
+    cfg.TEST.SCALES = [500]
+    cfg.TEST.MAX_SIZE = 1800
 
     args = parse_args()
 
@@ -189,8 +191,8 @@ if __name__ == '__main__':
                               NETS[args.demo_net][1])
 
     if not os.path.isfile(caffemodel):
-        raise IOError(('{:s} not found.\nDid you run ./data/script/'
-                       'fetch_faster_lsi_models.sh?').format(caffemodel))
+        raise IOError(('{:s} not found.\nDid you run ./data/scripts/'
+                       'fetch_lsi_models.sh?').format(caffemodel))
 
     if args.cpu_mode:
         caffe.set_mode_cpu()
