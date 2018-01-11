@@ -11,3 +11,5 @@ data/kitti/testing
 data/lsi_models.tar.gz
 data/lsi_models/
 output
+parse/*.png
+parse/**/
