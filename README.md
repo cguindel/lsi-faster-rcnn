@@ -23,12 +23,13 @@ This work is released under the MIT License (refer to the LICENSE file for detai
 In case you make use of the solutions adopted in this code regarding the viewpoint estimation, please consider citing:
 
     @inproceedings{Guindel2017ICVES,
-        author = {Guindel, Carlos and Mart{\'{i}}n, David and Armingol, Jos{\'{e}} M.},
-        booktitle = {IEEE International Conference on Vehicular Electronics
-                     and Safety (ICVES)},
-        title = {Joint Object Detection and Viewpoint Estimation using CNN features},
-        year = {2017},
-        note = {Accepted for presentation}
+        doi = {10.1109/icves.2017.7991916},
+        url = {https://doi.org/10.1109%2Ficves.2017.7991916},
+        year = 2017,
+        publisher = {{IEEE}},
+        author = {Carlos Guindel and David Martin and Jose Maria Armingol},
+        title = {Joint object detection and viewpoint estimation using {CNN} features},
+        booktitle = {2017 {IEEE} International Conference on Vehicular Electronics and Safety ({ICVES})}
     }
 
 Otherwise, if you use the four-channel input solution, please consider citing:
