@@ -1,7 +1,7 @@
 # --------------------------------------------------------
 # LSI-Faster R-CNN
 # Original work Copyright (c) 2015 Microsoft
-# Modified work Copyright 2017 Carlos Guindel
+# Modified work Copyright 2018 Carlos Guindel
 # Licensed under The MIT License [see LICENSE for details]
 # Originally written by Ross Girshick and Sean Bell
 # --------------------------------------------------------
@@ -39,10 +39,21 @@ class ProposalTargetLayer(caffe.Layer):
         top[4].reshape(1, self._num_classes * 4)
         if cfg.VIEWPOINTS:
             self._viewp_bins = cfg.VIEWP_BINS
-            # viewpoints
-            top[5].reshape(1, 1)
-            # where viewpoints matter (which elements of top[5]?)
-            top[6].reshape(1, self._viewp_bins*self._num_classes)
+            if cfg.SMOOTH_L1_ANGLE:
+                # viewpoints
+                top[5].reshape(1, self._num_classes)
+                # where viewpoints matter (which elements of top[5]?)
+                top[6].reshape(1, self._num_classes)
+            elif cfg.KL_ANGLE:
+                # viewpoints
+                top[5].reshape(1, self._viewp_bins)
+                # where viewpoints matter (which elements of top[5]?)
+                top[6].reshape(1, self._viewp_bins*self._num_classes)
+            else:
+                # viewpoints
+                top[5].reshape(1, 1)
+                # where viewpoints matter (which elements of top[5]?)
+                top[6].reshape(1, self._viewp_bins*self._num_classes)
         else:
             self._viewp_bins = []
 
@@ -252,26 +263,84 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
     # Select sampled values from various arrays:
     labels = labels[keep_inds]
     if cfg.VIEWPOINTS:
+
         orientations = orientations[keep_inds]
         orientations[fg_rois_per_this_image:] = -10
-        angles = np.zeros((orientations.shape[0], 1))
-        weights = np.zeros((orientations.shape[0], num_bins*num_classes))
+        if cfg.KL_ANGLE:
+            angles = np.zeros((orientations.shape[0], cfg.VIEWP_BINS))
+            weights = np.zeros((orientations.shape[0], num_bins*num_classes))
+        elif cfg.SMOOTH_L1_ANGLE:
+            angles = np.zeros((orientations.shape[0], num_classes))
+            weights = np.zeros((orientations.shape[0], num_classes))
+        else:
+            angles = np.zeros((orientations.shape[0], 1))
+            weights = np.zeros((orientations.shape[0], num_bins*num_classes))
 
-        # Assign an orientation bin for bin
         for ix, or_rads in enumerate(orientations):
-            if or_rads != -10 :
-                weights[ix][int(labels[ix]*num_bins):int(labels[ix]*num_bins+num_bins)] = 1;
-                if or_rads < 0:
-                    or_rads = or_rads + 2*math.pi
-                assert(cfg.VIEWP_OFFSET < (2*math.pi/cfg.VIEWP_BINS),
-                       'Offsets greater than the bin itself are not implemented')
-                nbin = math.floor((or_rads+cfg.VIEWP_OFFSET)/(2*math.pi/cfg.VIEWP_BINS))
-                if nbin>cfg.VIEWP_BINS-1:
-                    nbin = 0
-                angles[ix]=nbin
+
+            if cfg.CONTINUOUS_ANGLE:
+                angles[ix] = or_rads
+                weights[ix][0:num_bins] = 1
+            elif cfg.SMOOTH_L1_ANGLE:
+                if or_rads != -10 :
+                    angles[ix][int(labels[ix])] = or_rads
+                    weights[ix][int(labels[ix])] = 1
+                else:
+                    angles[ix][int(labels[ix])] = -10
             else:
-                weights[ix][0:num_bins] = 1;
-                angles[ix] = -10;
+                # Assign an orientation bin
+                if or_rads != -10 :
+
+                    weights[ix][int(labels[ix]*num_bins):int(labels[ix]*num_bins+num_bins)] = 1;
+                    if or_rads < 0:
+                        or_rads = or_rads + 2*math.pi
+                    assert(cfg.VIEWP_OFFSET < (2*math.pi/cfg.VIEWP_BINS),
+                           'Offsets greater than the bin itself are not implemented')
+                    nbin = math.floor((or_rads+cfg.VIEWP_OFFSET)/(2*math.pi/cfg.VIEWP_BINS))
+                    if nbin>cfg.VIEWP_BINS-1:
+                        nbin = 0
+
+                    if not cfg.KL_ANGLE:
+                        angles[ix]=nbin
+                    else:
+                        # Kullback-Leibler divergence. +info:
+                        #   L. Yang, J. Liu, and X. Tang,
+                        #   "Object detection and viewpoint estimation with auto-masking neural network,"
+                        #   in Computer Vision - ECCV 2014, 2014, pp. 441-455.
+                        bin_center = (math.pi*(2.*nbin+1))/cfg.VIEWP_BINS - cfg.VIEWP_OFFSET
+                        L = 2. * math.pi / cfg.VIEWP_BINS
+                        if or_rads<bin_center:
+                            bin_minus = nbin - 1
+                            bin_plus = nbin
+                            if bin_minus < 0:
+                                bin_minus = cfg.VIEWP_BINS-1
+                                bin_center_minus = (math.pi*(2.*(cfg.VIEWP_BINS-1)+1))/cfg.VIEWP_BINS - cfg.VIEWP_OFFSET
+                            else:
+                                bin_center_minus = (math.pi*(2.*(nbin-1)+1))/cfg.VIEWP_BINS - cfg.VIEWP_OFFSET
+                            bin_center_plus = bin_center
+                        elif or_rads>bin_center:
+                            bin_minus = nbin
+                            bin_plus = nbin + 1
+                            bin_center_minus = bin_center
+                            if bin_plus>cfg.VIEWP_BINS-1:
+                                bin_plus = 0
+                                bin_center_plus = (math.pi*(2.*(0)+1))/cfg.VIEWP_BINS - cfg.VIEWP_OFFSET
+                            else:
+                                bin_center_plus = (math.pi*(2.*(nbin+1)+1))/cfg.VIEWP_BINS - cfg.VIEWP_OFFSET
+
+                        if or_rads==bin_center:
+                            angles[ix][nbin] = 1
+                        else:
+                            angles[ix][int(bin_minus)] = (bin_center_plus - or_rads) / L
+                            angles[ix][int(bin_plus)] = (or_rads - bin_center_minus) / L
+                else:
+                    if not cfg.KL_ANGLE:
+                        weights[ix][0:num_bins] = 1
+                        angles[ix] = -10
+                    else:
+                        weights[ix][0:num_bins] = 1
+                        angles[ix][...] = -10
+
     else:
         angles = []
         weights = []

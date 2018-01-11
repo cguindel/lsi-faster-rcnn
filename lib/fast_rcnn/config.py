@@ -1,7 +1,7 @@
 # --------------------------------------------------------
 # LSI-Faster R-CNN
 # Original work Copyright (c) 2015 Microsoft
-# Modified work Copyright 2017 Carlos Guindel
+# Modified work Copyright 2018 Carlos Guindel
 # Licensed under The MIT License [see LICENSE for details]
 # Originally written by Ross Girshick
 # --------------------------------------------------------
@@ -191,6 +191,10 @@ __C.TEST.EXTERNAL_ROIS = False
 __C.TEST.DONTCARE_OVERLAP = 0.1
 # Weighted average of angle bins
 __C.TEST.W_ALPHA = False
+# Soft NMS
+__C.TEST.SOFT_NMS = 0
+# Kullback-Leibler divergence interpolation at test time
+__C.TEST.KL_ANGLE = False
 
 #
 # MISC
@@ -266,6 +270,15 @@ __C.PREFILTER_HEIGHT = 10000
 
 # Use modified CPU NMS
 __C.USE_CUSTOM_NMS = False
+
+# Viewpoint as a regression with AOS loss
+__C.CONTINUOUS_ANGLE = False
+
+# Viewpoint as a regression with Smooth-L1 loss
+__C.SMOOTH_L1_ANGLE = False
+
+# Kullback-Leibler divergence interpolation at training and test time
+__C.KL_ANGLE = False
 
 def get_output_dir(imdb, net=None):
     """Return the directory where experimental artifacts are placed.
