@@ -3,7 +3,7 @@
 # --------------------------------------------------------
 # LSI-Faster R-CNN
 # Original work Copyright (c) 2015 Microsoft
-# Modified work Copyright 2017 Carlos Guindel
+# Modified work Copyright 2018 Carlos Guindel
 # Licensed under The MIT License [see LICENSE for details]
 # Based on code written by Ross Girshick
 # --------------------------------------------------------
@@ -18,12 +18,14 @@ import _init_paths
 from fast_rcnn.config import cfg
 from fast_rcnn.test import im_detect
 from fast_rcnn.nms_wrapper import nms
+from utils import angles
 from utils.timer import Timer
 import numpy as np
 import caffe, os, sys, cv2
 import argparse
 from os import listdir
 from random import shuffle
+import math
 
 CLASSES = {'vgg16_7cls':('__background__', # always index 0
                         'Car', 'Van', 'Truck', 'Pedestrian',
@@ -93,7 +95,13 @@ def draw_detections(image, scores, boxes, viewpoints, thresh=0.5):
             if score>thresh:
 
                 bbox = [bbox[0], bbox[1], bbox[2], bbox[3]]
-                angle_bin = np.argmax(det[-cfg.VIEWP_BINS:])
+                max_bin = np.argmax(det[-cfg.VIEWP_BINS:])
+                probs = det[-cfg.VIEWP_BINS:]
+
+                if cfg.TEST.W_ALPHA:
+                    estimated_angle = angles.walpha_angle(probs, cfg.VIEWP_BINS, cfg.VIEWP_OFFSET)
+                else:
+                    estimated_angle = angles.bin_center_angle(probs, cfg.VIEWP_BINS, cfg.VIEWP_OFFSET)
 
                 cv2.rectangle(image,(int(bbox[0]), int(bbox[1])),
                     (int(bbox[2]), int(bbox[3])), CLASS_COLOR[args.demo_net][cls_ind], 2)
@@ -101,37 +109,32 @@ def draw_detections(image, scores, boxes, viewpoints, thresh=0.5):
                 cv2.rectangle(alpha,(int(bbox[0]), int(bbox[1])),
                     (int(bbox[2]), int(bbox[3])),CLASS_COLOR[args.demo_net][cls_ind], -1)
 
-                if angle_bin > 3:
-                    start_arrow = (int(bbox[0])+width/2, int(bbox[1])-5)
-                    if angle_bin == 4:
-                        end_arrow = (int(bbox[0])+width/2-48, int(bbox[1])-15)
-                    elif angle_bin == 5:
-                        end_arrow = (int(bbox[0])+width/2-8, int(bbox[1])-25)
-                    elif angle_bin == 6:
-                        end_arrow = (int(bbox[0])+width/2+8, int(bbox[1])-25)
-                    elif angle_bin == 7:
-                        end_arrow = (int(bbox[0])+width/2+48, int(bbox[1])-15)
+                arrow_length = 30
+                start_pt = (int(bbox[0])+width/2,int(bbox[1])+height/2)
+                end_pt_x = int(start_pt[0] + arrow_length * math.cos(estimated_angle))
+                end_pt_y = int(start_pt[1] + arrow_length * math.sin(estimated_angle))
 
-                    cv2.putText(image, '{:s} ({:.0f}%)'.format(cls, score*100),
-                        (int(bbox[0]), int(bbox[3])+15), cv2.FONT_HERSHEY_DUPLEX,
-                        0.4, CLASS_COLOR[args.demo_net][cls_ind])
-                else:
-                    start_arrow = (int(bbox[0])+width/2, int(bbox[3])+5)
-                    if angle_bin == 0:
-                        end_arrow = (int(bbox[0])+width/2+48, int(bbox[3])+15)
-                    elif angle_bin == 1:
-                        end_arrow = (int(bbox[0])+width/2+8, int(bbox[3])+25)
-                    elif angle_bin == 2:
-                        end_arrow = (int(bbox[0])+width/2-8, int(bbox[3])+25)
-                    elif angle_bin == 3:
-                        end_arrow = (int(bbox[0])+width/2-48, int(bbox[3])+15)
+                end_pt = (end_pt_x, end_pt_y)
 
-                    cv2.putText(image, '{:s} ({:.0f}%)'.format(cls, score*100),
-                        (int(bbox[0]), int(bbox[1])-10), cv2.FONT_HERSHEY_DUPLEX,
-                        0.4, CLASS_COLOR[args.demo_net][cls_ind])
+                cv2.arrowedLine(image, start_pt, end_pt, \
+                    (0,0,0), 9, 8, 0, 0.6)
 
-                cv2.arrowedLine(image, start_arrow, end_arrow, \
-                    CLASS_COLOR[args.demo_net][cls_ind], 3, 8, 0, 0.6)
+                cv2.arrowedLine(image, start_pt, end_pt, \
+                    (255,255,255), 5, 8, 0, 0.6)
+
+                cardinal_pts = ['R', 'FR', 'F', 'FL', 'L', 'BL', 'B', 'BR']
+
+                cv2.putText(image, '{:s} ({:.0f}%)'.format(cls[:3], score*100),
+                    (int(bbox[0]), int(bbox[3])+15), cv2.FONT_HERSHEY_DUPLEX,
+                    0.5, CLASS_COLOR[args.demo_net][cls_ind])
+
+                textsize, baseLine = cv2.getTextSize(cardinal_pts[max_bin],
+                    cv2.FONT_HERSHEY_DUPLEX,
+                    0.9, 2)
+
+                cv2.putText(image, cardinal_pts[max_bin],
+                    (int(bbox[0]+width/2-textsize[0]/2), int(bbox[1])-6), cv2.FONT_HERSHEY_DUPLEX,
+                    0.9, CLASS_COLOR[args.demo_net][cls_ind], 2)
 
     nice = cv2.addWeighted(alpha, 0.3, image, 1, 0)
 
@@ -166,7 +169,7 @@ def parse_args():
                         help='Use CPU mode (overrides --gpu)',
                         action='store_true')
     parser.add_argument('--net', dest='demo_net', help='Network to use [vgg16_7cls]',
-                        choices=NETS.keys(), default='vgg16_7cls')
+                        choices=NETS.keys(), default='vgg16_3cls')
     parser.add_argument('--random', help='Choose random images',
                         action='store_true', default=False)
 
@@ -175,6 +178,7 @@ def parse_args():
     return args
 
 if __name__ == '__main__':
+    # Model parameters
     cfg.TEST.HAS_RPN = True  # Use RPN for proposals
     cfg.VIEWPOINTS = True
     cfg.MODELS_DATASET = 'kitti'
@@ -182,6 +186,8 @@ if __name__ == '__main__':
         cfg.MODELS_DATASET))
     cfg.TEST.SCALES = [500]
     cfg.TEST.MAX_SIZE = 1800
+    cfg.VIEWP_OFFSET = 0.3927
+    cfg.TEST.W_ALPHA = True
 
     args = parse_args()
 
@@ -217,8 +223,8 @@ if __name__ == '__main__':
 
         shuffle(im_names)
     else:
-        im_names = ['000001.png', '000002.png', '000005.png',
-                    '000008.png', '000012.png', '000014.png'
+        im_names = ['000001.png', '000002.png', '000003.png',
+                    '000004.png', '000005.png', '000006.png'
         ]
 
     next_img = True
