@@ -28,32 +28,32 @@ class ProposalTargetLayer(caffe.Layer):
         self._num_classes = layer_params['num_classes']
 
         # sampled rois (0, x1, y1, x2, y2)
-        top[0].reshape(1, 5)
+        top[0].reshape(1, 5, 1, 1)
         # labels
-        top[1].reshape(1, 1)
+        top[1].reshape(1, 1, 1, 1)
         # bbox_targets
-        top[2].reshape(1, self._num_classes * 4)
+        top[2].reshape(1, self._num_classes * 4, 1, 1)
         # bbox_inside_weights
-        top[3].reshape(1, self._num_classes * 4)
+        top[3].reshape(1, self._num_classes * 4, 1, 1)
         # bbox_outside_weights
-        top[4].reshape(1, self._num_classes * 4)
+        top[4].reshape(1, self._num_classes * 4, 1, 1)
         if cfg.VIEWPOINTS:
             self._viewp_bins = cfg.VIEWP_BINS
             if cfg.SMOOTH_L1_ANGLE:
                 # viewpoints
-                top[5].reshape(1, self._num_classes)
+                top[5].reshape(1, self._num_classes, 1, 1)
                 # where viewpoints matter (which elements of top[5]?)
-                top[6].reshape(1, self._num_classes)
+                top[6].reshape(1, self._num_classes, 1, 1)
             elif cfg.KL_ANGLE:
                 # viewpoints
-                top[5].reshape(1, self._viewp_bins)
+                top[5].reshape(1, self._viewp_bins, 1, 1)
                 # where viewpoints matter (which elements of top[5]?)
-                top[6].reshape(1, self._viewp_bins*self._num_classes)
+                top[6].reshape(1, self._viewp_bins*self._num_classes, 1, 1)
             else:
                 # viewpoints
-                top[5].reshape(1, 1)
+                top[5].reshape(1, 1, 1, 1)
                 # where viewpoints matter (which elements of top[5]?)
-                top[6].reshape(1, self._viewp_bins*self._num_classes)
+                top[6].reshape(1, self._viewp_bins*self._num_classes, 1, 1)
         else:
             self._viewp_bins = []
 
@@ -70,6 +70,7 @@ class ProposalTargetLayer(caffe.Layer):
         # TODO(rbg): it's annoying that sometimes I have extra info before
         # and other times after box coordinates -- normalize to one format
         gt_boxes = bottom[1].data
+        gt_boxes = gt_boxes.reshape(gt_boxes.shape[0], gt_boxes.shape[1])
 
         if DEBUG and len(bottom)>2:
           img = bottom[2].data
@@ -91,8 +92,8 @@ class ProposalTargetLayer(caffe.Layer):
         assert np.all(all_rois[:, 0] == 0), \
                 'Only single item batches are supported'
 
-        num_images = 1
-        rois_per_image = cfg.TRAIN.BATCH_SIZE / num_images
+        # num_images = 1
+        rois_per_image = np.inf if cfg.TRAIN.BATCH_SIZE == -1 else cfg.TRAIN.BATCH_SIZE
         fg_rois_per_image = np.round(cfg.TRAIN.FG_FRACTION * rois_per_image)
 
         # Sample rois with classification labels and bounding box regression
@@ -112,33 +113,38 @@ class ProposalTargetLayer(caffe.Layer):
             print 'ratio: {:.3f}'.format(float(self._fg_num) / float(self._bg_num))
 
         # sampled rois
+        rois = rois.reshape((rois.shape[0], rois.shape[1], 1, 1))
         top[0].reshape(*rois.shape)
         top[0].data[...] = rois
 
         # classification labels
+        labels = labels.reshape((labels.shape[0], 1, 1, 1))
         top[1].reshape(*labels.shape)
         top[1].data[...] = labels
 
         # bbox_targets
+        bbox_targets = bbox_targets.reshape((bbox_targets.shape[0], bbox_targets.shape[1], 1, 1))
         top[2].reshape(*bbox_targets.shape)
         top[2].data[...] = bbox_targets
 
         # bbox_inside_weights
+        bbox_inside_weights = bbox_inside_weights.reshape((bbox_inside_weights.shape[0], bbox_inside_weights.shape[1], 1, 1))
         top[3].reshape(*bbox_inside_weights.shape)
         top[3].data[...] = bbox_inside_weights
 
         # bbox_outside_weights
+        bbox_inside_weights = bbox_inside_weights.reshape((bbox_inside_weights.shape[0], bbox_inside_weights.shape[1], 1, 1))
         top[4].reshape(*bbox_inside_weights.shape)
         top[4].data[...] = np.array(bbox_inside_weights > 0).astype(np.float32)
 
         if cfg.VIEWPOINTS:
             # orientations
-            top[5].reshape(*orientations.shape)
-            top[5].data[...] = orientations
+            top[5].reshape(orientations.shape[0], orientations.shape[1], 1, 1)
+            top[5].data[:,:,0,0] = orientations
 
             # where viewpoints matter (which elements of top[5]?)
-            top[6].reshape(*weights.shape)
-            top[6].data[...] = weights
+            top[6].reshape(weights.shape[0], weights.shape[1], 1, 1)
+            top[6].data[:,:,0,0] = weights
 
     def backward(self, top, propagate_down, bottom):
         """This layer does not propagate gradients."""

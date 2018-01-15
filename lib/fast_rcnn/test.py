@@ -379,6 +379,7 @@ def test_net(net, imdb, max_per_image=100, thresh=0.05, vis=False):
                         viewp = viewpoints[inds]
                         cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis], viewp)) \
                             .astype(np.float32, copy=False)
+                        # TODO: cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis], viewp)) \ ?
                     else:
                         # Softmax is only performed over the class N_BINSx "slot"
                         # (that is why we apply it outside Caffe)

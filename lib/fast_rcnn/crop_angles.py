@@ -25,18 +25,18 @@ class CropAnglesLayer(caffe.Layer):
 
     def reshape(self, bottom, top):
 
-        top[0].reshape(1, self._viewp_bins)
+        top[0].reshape(1, self._viewp_bins, 1, 1)
 
     def forward(self, bottom, top):
         np.set_printoptions(threshold=np.nan)
         original = bottom[0].data
-        weights = bottom[1].data
+        weights = bottom[1].data[:,:,0,0]
 
-        cropped = np.zeros((weights.shape[0], self._viewp_bins), \
+        cropped = np.zeros((weights.shape[0], self._viewp_bins, 1, 1), \
                             dtype=np.float32)
 
         for nrow, row in enumerate(original):
-            cropped[nrow, :] = row[weights[nrow]>0]
+            cropped[nrow,:,0,0] = row[weights[nrow,:]>0]
 
         top[0].reshape(*cropped.shape)
         top[0].data[...] = cropped
@@ -46,10 +46,10 @@ class CropAnglesLayer(caffe.Layer):
           raise Exception("Weights cannot be propagated down")
 
         original = bottom[0].data
-        weights = bottom[1].data
+        weights = bottom[1].data[:,:,0,0]
         topdiff = top[0].diff[...]
 
-        prop = np.zeros_like(original)
+        prop = np.zeros((original.shape[0], original.shape[1], 1, 1), dtype=np.float32)
         for nrow, row in enumerate(prop):
             row[weights[nrow]==1] = topdiff[nrow,:]
 
