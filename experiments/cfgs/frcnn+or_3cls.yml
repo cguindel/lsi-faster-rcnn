@@ -1,6 +1,7 @@
-EXP_DIR: kitti_frcnn
-MODELS_DATASET: kitti
+EXP_DIR: frcnn+or_3cls
+MODELS_DIR: '/home/cguindel/lsi-faster-rcnn/models/kitti'
 VIEWPOINTS: True
+VIEWP_OFFSET: 0.3927
 TRAIN:
   # ==Sizes==
   SCALES: [500]
@@ -12,7 +13,7 @@ TRAIN:
   # ==Train cfg==
   IMS_PER_BATCH: 1
   # original cfg: 1
-  SNAPSHOT_ITERS: 30000
+  SNAPSHOT_ITERS: 25000
   # original config.py: 10000
   BBOX_NORMALIZE_TARGETS_PRECOMPUTED: True
   # original cfg: True
@@ -49,17 +50,15 @@ TEST:
   # not original
   NMS: 0.3
   # original config.py: 0.3
+  W_ALPHA: True
 
-PIXEL_MEANS: [[[134.8774, 135.1622, 135.8740]]]
+PIXEL_MEANS: [[[95.8773, 98.7604, 93.8330]]]
 CLASSES: ['__background__', # always index 0
-          'Car', 'Van', 'Truck', 'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram']
+          'Car', 'Pedestrian', 'Cyclist']
 
-# Easy: 0 / 0.15 / 40
-# Medium: 1 / 0.3 / 25
-# Hard: 2 / 0.5 / 25
 MAX_OCCLUDED: 2
 MAX_TRUNCATED: 0.5
 MIN_HEIGHT: 25
 ANCHOR_SCALES: [5, 7, 9]
 ANCHOR_ASPECT_RATIOS: [0.4, 0.7, 2.5]
-RNG_SEED: 6
+RNG_SEED: 3

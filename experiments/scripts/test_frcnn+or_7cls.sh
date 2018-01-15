@@ -3,8 +3,8 @@ set -x
 set -e
 
 # Parameters
-NAME="leaderboard_7cls"
-GPU_ID="1"
+NAME="frcnn+or_3cls"
+GPU_ID="0"
 PT_DIR="kitti"
 NET="VGG16"
 TRAIN_IMDB="kitti_training"

@@ -3,7 +3,7 @@ set -x
 set -e
 
 # Parameters
-NAME="leaderboard"
+NAME="frcnn+or_3cls"
 GPU_ID="0"
 PT_DIR="kitti"
 NET="VGG16"
