@@ -294,6 +294,7 @@ def test_net(net, imdb, max_per_image=100, thresh=0.05, vis=False):
     output_dir = get_output_dir(imdb, net)
 
     cache_file = os.path.join(output_dir, 'detections.pkl')
+    times_vector_ = []
     if os.path.exists(cache_file):
         with open(cache_file, 'rb') as fid:
             all_boxes = cPickle.load(fid)
@@ -361,7 +362,8 @@ def test_net(net, imdb, max_per_image=100, thresh=0.05, vis=False):
                         scores, boxes, viewpoints = im_detect(net, im, box_proposals)
                     else:
                         scores, boxes = im_detect(net, im, box_proposals)
-                        _t['im_detect'].toc()
+                    if i>3: # CUDA warmup
+                        times_vector_.append(_t['im_detect'].toc(average=False))
 
             _t['misc'].tic()
             # skip j = 0, because it's the background class
@@ -460,3 +462,10 @@ def test_net(net, imdb, max_per_image=100, thresh=0.05, vis=False):
 
     print 'Evaluating detections'
     imdb.evaluate_detections(all_boxes, output_dir)
+
+    np.array(times_vector_)
+    print 'Times:'
+    print 'mean: {:.3f}s'.format(np.mean(times_vector_))
+    print 'std: {:.3f}s'.format(np.std(times_vector_))
+    print 'quartiles: {:.3f}s / {:.3f}s / {:.3f}s'.format(np.percentile(times_vector_, 25), np.percentile(times_vector_, 50), np.percentile(times_vector_, 75))
+    print 'max: {:.3f}s / min: {:.3f}s'.format(np.max(times_vector_), np.min(times_vector_))
