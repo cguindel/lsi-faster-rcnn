@@ -4,7 +4,7 @@ set -e
 
 # Parameters
 NAME="frcnn+or_7cls"
-GPU_ID="1"
+GPU_ID="0"
 PT_DIR="kitti"
 NET="VGG16"
 TRAIN_IMDB="kitti_training"
