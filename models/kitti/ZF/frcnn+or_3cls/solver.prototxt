@@ -1,10 +1,10 @@
-train_net: "models/kitti/ZF/faster_rcnn_end2end/train.prototxt"
+train_net: "models/kitti/ZF/frcnn+or_3cls/train.prototxt"
 
-base_lr: 0.0005 #original: 0.001
+base_lr: 0.0005  #original: 0.001
 lr_policy: "step"
 gamma: 0.1
-stepsize: 30000
-display: 20
+stepsize: 30000  #original: 50k
+display: 1
 average_loss: 100
 momentum: 0.9
 weight_decay: 0.0005

@@ -163,7 +163,6 @@ class kitti(imdb):
         dc_rois = np.empty((0, 4), dtype=np.float32)
 
         # Load object bounding boxes into a data frame.
-        saved = 0
         for obj in pre_objs:
             x1 = obj['bbox_xmin']
             y1 = obj['bbox_ymin']
