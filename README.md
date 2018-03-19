@@ -23,24 +23,27 @@ This work is released under the MIT License (refer to the LICENSE file for detai
 In case you make use of the solutions adopted in this code regarding the viewpoint estimation, please consider citing:
 
     @inproceedings{Guindel2017ICVES,
-        doi = {10.1109/icves.2017.7991916},
-        url = {https://doi.org/10.1109%2Ficves.2017.7991916},
-        year = 2017,
-        publisher = {{IEEE}},
-        author = {Carlos Guindel and David Martin and Jose Maria Armingol},
-        title = {Joint object detection and viewpoint estimation using {CNN} features},
-        booktitle = {2017 {IEEE} International Conference on Vehicular Electronics and Safety ({ICVES})}
+        author={Guindel, Carlos and Mart{\'i}n, David and Armingol, Jos{\'e} Mar{\'i}a},
+        booktitle={2017 {IEEE} International Conference on Vehicular Electronics and Safety ({ICVES})},
+        title={Joint object detection and viewpoint estimation using {CNN} features},
+        year={2017},
+        pages={145-150},
+        doi={10.1109/ICVES.2017.7991916},
+        month={June}
     }
 
 Otherwise, if you use the four-channel input solution, please consider citing:
 
-    @inproceedings{Guindel2017EUROCAST,
-        author = {Guindel, Carlos and Mart{\'{i}}n, David and Armingol, Jos{\'{e}} M.},
-        booktitle = {EUROCAST 2017, Extended Abstract Book},
-        title = {Stereo Vision-Based Convolutional Networks for Object Detection
-                 in Driving Environments},
-        year = {2017},
-        note = {Selected to be included in the Springer LNCS volumes}
+    @inproceedings{Guindel2018EUROCAST,
+        author={Guindel, Carlos and Mart{\'i}n, David and Armingol, Jos{\'e} Mar{\'i}a},
+        editor={Moreno-D{\'i}az, Roberto and Pichler, Franz and Quesada-Arencibia, Alexis},
+        title={Stereo Vision-Based Convolutional Networks for Object Detection in Driving Environments},
+        booktitle={Computer Aided Systems Theory - EUROCAST 2017},
+        year={2018},
+        publisher={Springer International Publishing},
+        address={Cham},
+        pages={427-434},
+        isbn={978-3-319-74727-9}
     }
 
 You can find the original research paper presenting the Faster R-CNN approach in:
