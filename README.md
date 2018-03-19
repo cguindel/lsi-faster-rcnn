@@ -8,7 +8,9 @@ Features introduced in this fork include:
 * Discrete viewpoint prediction.
 * Four-channel input.
 
-The last two features are introduced in two research papers currently accepted for publication. Please check the [citation section](#citing-this-work) for further details.
+The last two features are introduced in two published research papers. Please check the [citation section](#citing-this-work) for further details.
+
+All the included methods can be quantitatively evaluated using the companion [eval_kitti](https://github.com/cguindel/eval_kitti) repository.
 
 ### Disclaimer
 
